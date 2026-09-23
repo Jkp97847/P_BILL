@@ -10,12 +10,17 @@ const INITIAL_USERS = [
     role: 'admin',
     status: 'active',
     createdAt: new Date().toISOString(),
+    permissions: {
+      canGenerateBills: true,
+      canEditFormat: true,
+      canViewReports: true
+    },
     profile: {
-      name: 'सिस्टम एडमिनिस्ट्रेटर',
-      shopName: 'स्मार्ट बिलिंग एडमिन मुख्यालय',
+      name: 'सिस्टम सुपर एडमिनिस्ट्रेटर',
+      shopName: 'स्मार्ट बिलिंग सुपर हेडक्वार्टर',
       mobile: '9999999999',
       email: 'admin@smartbilling.local',
-      address: 'हेडक्वार्टर'
+      address: 'सेंट्रल कंट्रोल रूम'
     }
   },
   {
@@ -25,6 +30,11 @@ const INITIAL_USERS = [
     role: 'seller',
     status: 'active',
     createdAt: new Date().toISOString(),
+    permissions: {
+      canGenerateBills: true,
+      canEditFormat: true,
+      canViewReports: true
+    },
     profile: {
       name: 'राजेश कुमार (प्रोपराइटर)',
       shopName: 'श्री गणेश ट्रेडर्स',
@@ -102,12 +112,16 @@ export function AuthProvider({ children }) {
       return { success: false, message: 'गलत पासवर्ड! कृपया सही पासवर्ड दर्ज करें।' };
     }
 
+    if (foundUser.status === 'pending') {
+      return { success: false, message: 'आपका खाता समीक्षाधीन (Pending Approval) है। कृपया सुपर एडमिन द्वारा मंजूरी मिलने की प्रतीक्षा करें।' };
+    }
+
     if (foundUser.status === 'inactive') {
-      return { success: false, message: 'यह खाता निष्क्रिय कर दिया गया है। एडमिन से संपर्क करें।' };
+      return { success: false, message: 'यह खाता व्यवस्थापक द्वारा निष्क्रिय/निलंबित कर दिया गया है।' };
     }
 
     if (requiredRole && foundUser.role !== requiredRole) {
-      return { success: false, message: `इस अनुभाग के लिए ${requiredRole === 'admin' ? 'एडमिन' : 'यूजर'} अधिकार आवश्यक हैं।` };
+      return { success: false, message: `इस अनुभाग के लिए ${requiredRole === 'admin' ? 'सुपर एडमिन' : 'यूजर'} अधिकार आवश्यक हैं।` };
     }
 
     // Success
@@ -115,6 +129,7 @@ export function AuthProvider({ children }) {
       id: foundUser.id,
       username: foundUser.username,
       role: foundUser.role,
+      permissions: foundUser.permissions || { canGenerateBills: true, canEditFormat: true, canViewReports: true },
       profile: foundUser.profile || {}
     };
 
@@ -144,8 +159,13 @@ export function AuthProvider({ children }) {
       username: signupData.username.trim(),
       password: signupData.password,
       role: 'seller',
-      status: 'active',
+      status: 'active', // can be 'active' or 'pending'
       createdAt: new Date().toISOString(),
+      permissions: {
+        canGenerateBills: true,
+        canEditFormat: true,
+        canViewReports: true
+      },
       profile: {
         name: signupData.ownerName?.trim() || signupData.name?.trim() || 'दुकानदार',
         shopName: signupData.shopName?.trim() || 'मेरी दुकान',
@@ -163,6 +183,7 @@ export function AuthProvider({ children }) {
       id: newUser.id,
       username: newUser.username,
       role: newUser.role,
+      permissions: newUser.permissions,
       profile: newUser.profile
     };
     setCurrentUser(sessionUser);
@@ -248,18 +269,40 @@ export function AuthProvider({ children }) {
     return { success: true, message: 'पासवर्ड सफलतापूर्वक रीसेट हो गया है! अब आप नए पासवर्ड से लॉगिन कर सकते हैं।' };
   };
 
+  // UPDATE USER STATUS (ACTIVE | PENDING | INACTIVE)
+  const updateUserStatus = (userId, status) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return { success: false, message: 'यूजर नहीं मिला' };
+    if (user.role === 'admin' && status !== 'active') {
+      return { success: false, message: 'मुख्य सुपर एडमिन को निष्क्रिय नहीं किया जा सकता।' };
+    }
+
+    const updatedUsers = users.map(u => u.id === userId ? { ...u, status } : u);
+    setUsers(updatedUsers);
+    return { success: true, message: `यूजर स्थिति को "${status === 'active' ? 'सक्रिय' : status === 'pending' ? 'लंबित' : 'निलंबित'}" कर दिया गया।` };
+  };
+
+  // UPDATE USER PERMISSIONS
+  const updateUserPermissions = (userId, permissions) => {
+    const updatedUsers = users.map(u => u.id === userId ? {
+      ...u,
+      permissions: { ...(u.permissions || {}), ...permissions }
+    } : u);
+    setUsers(updatedUsers);
+    return { success: true, message: 'यूजर अनुमतियाँ सफलतापूर्वक अपडेट हुईं।' };
+  };
+
   // TOGGLE STATUS
   const toggleUserStatus = (userId) => {
     const user = users.find(u => u.id === userId);
     if (!user) return;
     if (user.role === 'admin') {
-      alert('मुख्य एडमिन खाते को निष्क्रिय नहीं किया जा सकता।');
+      alert('मुख्य सुपर एडमिन खाते को निष्क्रिय नहीं किया जा सकता।');
       return;
     }
 
     const newStatus = user.status === 'active' ? 'inactive' : 'active';
-    const updatedUsers = users.map(u => u.id === userId ? { ...u, status: newStatus } : u);
-    setUsers(updatedUsers);
+    updateUserStatus(userId, newStatus);
   };
 
   // DELETE USER
@@ -267,14 +310,35 @@ export function AuthProvider({ children }) {
     const user = users.find(u => u.id === userId);
     if (!user) return;
     if (user.role === 'admin') {
-      alert('मुख्य एडमिन खाते को हटाया नहीं जा सकता।');
+      alert('मुख्य सुपर एडमिन खाते को हटाया नहीं जा सकता।');
       return;
     }
 
     if (window.confirm(`क्या आप यूजर "${user.username}" को सचमुच हटाना चाहते हैं?`)) {
       const updatedUsers = users.filter(u => u.id !== userId);
       setUsers(updatedUsers);
+      // Clean up scoped bills & settings
+      try {
+        localStorage.removeItem(`billing_app_settings_${userId}`);
+        localStorage.removeItem(`billing_app_bills_${userId}`);
+      } catch (e) {
+        console.error(e);
+      }
     }
+  };
+
+  // RESTORE USERS LIST FROM MASTER BACKUP
+  const restoreAllUsers = (newUsersList) => {
+    if (Array.isArray(newUsersList) && newUsersList.length > 0) {
+      setUsers(newUsersList);
+      try {
+        localStorage.setItem('billing_app_users', JSON.stringify(newUsersList));
+      } catch (e) {
+        console.error(e);
+      }
+      return true;
+    }
+    return false;
   };
 
   return (
@@ -288,8 +352,11 @@ export function AuthProvider({ children }) {
         changePassword,
         adminResetPassword,
         forgotPasswordReset,
+        updateUserStatus,
+        updateUserPermissions,
         toggleUserStatus,
-        deleteUser
+        deleteUser,
+        restoreAllUsers
       }}
     >
       {children}

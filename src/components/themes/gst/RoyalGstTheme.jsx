@@ -1,5 +1,6 @@
 import React from 'react';
 import GaneshLogo from '../../GaneshLogo';
+import DigitalSignatureBadge from '../../DigitalSignatureBadge';
 import { numberToHindiWords, numberToIndianWords } from '../../../utils/numberToWords';
 import UpiQrCode from '../../common/UpiQrCode';
 
@@ -18,54 +19,64 @@ export default function RoyalGstTheme({ bill, settings }) {
   const shouldShowGanesh = disp.showGaneshLogo && currentSettings.showGaneshLogo;
 
   return (
-    <div className="bg-white text-slate-900 border-2 border-purple-900 rounded-lg p-5 max-w-4xl mx-auto shadow-md text-xs leading-relaxed font-serif">
-      {/* 1. ROYAL HEADER */}
-      <div className="border-b-2 border-purple-900 pb-2 mb-2">
-        <div className="flex justify-between items-center text-[10px] text-purple-900 font-sans font-bold uppercase tracking-wider mb-1">
-          <span>👑 SHOWROOM GST TAX INVOICE</span>
-          {shouldShowGanesh && (
-            <span className="text-purple-700 font-bold">
-              {currentSettings.ganeshText || '॥ श्री गणेशाय नमः ॥'}
-            </span>
+    <div id="printable-bill" className="bg-white text-slate-900 border-2 border-purple-900 rounded-lg p-5 max-w-4xl mx-auto shadow-md text-xs leading-relaxed font-serif">
+      {/* 1. ROYAL TOP HEADER */}
+      <div className="grid grid-cols-12 items-center border-b-2 border-purple-900 pb-2 mb-2 min-h-[56px] gap-2">
+        <div className="col-span-3 flex items-center justify-start">
+          {disp.showLogo && currentSettings.logo ? (
+            <img
+              src={currentSettings.logo}
+              alt="Logo"
+              className="w-16 h-16 object-contain rounded border-2 border-purple-200 p-0.5"
+            />
+          ) : (
+            <div className="w-16 h-16 hidden sm:block"></div>
           )}
-          <span>मूल प्रति (ORIGINAL)</span>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
-          <div className="flex items-center gap-3">
-            {disp.showLogo && currentSettings.logo && (
-              <img
-                src={currentSettings.logo}
-                alt="Logo"
-                className="w-14 h-14 object-contain rounded border-2 border-purple-200 p-0.5"
-              />
-            )}
-            <div>
-              {disp.showFirmName && (
-                <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-purple-950 font-serif">
-                  {currentSettings.firmName || 'फर्म का नाम'}
-                </h1>
-              )}
-              {disp.showTagline && currentSettings.tagline && (
-                <p className="text-xs text-purple-700 italic font-sans">{currentSettings.tagline}</p>
-              )}
-              {disp.showAddress && currentSettings.address && (
-                <p className="text-[11px] text-slate-600 font-sans mt-0.5">📍 {currentSettings.address}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="text-right font-sans text-xs text-slate-700 space-y-0.5">
-            {disp.showMobile && currentSettings.mobile && (
-              <div className="font-bold text-purple-950">📞 {currentSettings.mobile}</div>
-            )}
-            {disp.showEmail && currentSettings.email && (
-              <div className="text-[10px] text-slate-500">{currentSettings.email}</div>
-            )}
-          </div>
+        <div className="col-span-6 text-center flex flex-col items-center justify-center">
+          {shouldShowGanesh && (
+            <GaneshLogo
+              showLogo={true}
+              text={currentSettings.ganeshText || '॥ श्री गणेशाय नमः ॥'}
+              size="md"
+            />
+          )}
         </div>
 
-        {/* GSTIN / PAN Bar */}
+        <div className="col-span-3 text-right flex flex-col items-end justify-center font-sans text-xs text-slate-700 space-y-0.5">
+          {disp.showMobile && currentSettings.mobile && (
+            <div className="font-bold text-purple-950 font-mono">📞 {currentSettings.mobile}</div>
+          )}
+          {disp.showAlternateMobile && currentSettings.alternateMobile && (
+            <div className="font-mono text-purple-900 text-[11px]">📞 {currentSettings.alternateMobile}</div>
+          )}
+          {disp.showEmail && currentSettings.email && (
+            <div className="text-[10px] text-slate-500 font-mono">✉️ {currentSettings.email}</div>
+          )}
+        </div>
+      </div>
+
+      {/* Invoice Banner */}
+      <div className="text-center my-1">
+        <span className="inline-block bg-purple-900 text-amber-300 font-sans font-bold px-6 py-1 rounded-full text-xs uppercase tracking-wider shadow-xs">
+          👑 SHOWROOM GST TAX INVOICE (मूल प्रति / ORIGINAL)
+        </span>
+      </div>
+
+      {/* Firm Info */}
+      <div className="text-center border-b-2 border-purple-200 pb-2 mb-2.5 bg-purple-50/40 rounded p-2">
+        {disp.showFirmName && (
+          <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-purple-950 font-serif">
+            {currentSettings.firmName || 'फर्म का नाम'}
+          </h1>
+        )}
+        {disp.showTagline && currentSettings.tagline && (
+          <p className="text-xs text-purple-700 italic font-sans">{currentSettings.tagline}</p>
+        )}
+        {disp.showAddress && currentSettings.address && (
+          <p className="text-[11px] text-slate-600 font-sans mt-0.5">📍 {currentSettings.address}</p>
+        )}
         <div className="flex flex-wrap justify-center gap-4 mt-2 pt-1 border-t border-purple-200 text-[11px] font-sans font-bold">
           {disp.showGstin && currentSettings.gstin && (
             <span className="bg-purple-50 text-purple-950 px-2 py-0.5 rounded border border-purple-200">
@@ -302,15 +313,16 @@ export default function RoyalGstTheme({ bill, settings }) {
             </ol>
           )}
         </div>
-        <div className="text-center flex flex-col justify-between items-center border border-purple-200 rounded p-1 bg-purple-50/40">
-          <div className="text-[10px] font-bold text-purple-950">कृते {currentSettings.firmName}</div>
-          <div className="h-8"></div>
-          {disp.showSignatory && (
-            <div className="border-t border-purple-300 w-full pt-0.5 text-[9px] font-semibold text-slate-700">
-              {currentSettings.signatoryText || 'अधिकृत हस्ताक्षरकर्ता'}
-            </div>
-          )}
-        </div>
+        {disp.showSignatory && (
+          <div className="flex flex-col justify-end items-end p-1">
+            <DigitalSignatureBadge
+              ownerName={currentSettings.ownerName}
+              firmName={currentSettings.firmName}
+              signatoryText={currentSettings.signatoryText}
+              date={bill.date}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

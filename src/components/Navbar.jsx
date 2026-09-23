@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useBilling } from '../context/BillingContext';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import ChangePasswordModal from './auth/ChangePasswordModal';
 import AdminPortalModal from './admin/AdminPortalModal';
 import { 
@@ -17,6 +18,7 @@ import {
 export default function Navbar() {
   const { activeTab, setActiveTab, settings, bills } = useBilling();
   const { currentUser, logout } = useAuth();
+  const { showToast } = useToast();
 
   const [changePassOpen, setChangePassOpen] = useState(false);
   const [adminPortalOpen, setAdminPortalOpen] = useState(false);
@@ -113,7 +115,10 @@ export default function Navbar() {
               {/* Logout Button */}
               <button
                 type="button"
-                onClick={logout}
+                onClick={() => {
+                  logout();
+                  showToast('info', 'आप सुरक्षित रूप से लॉगआउट हो गए हैं।', 'लॉगआउट');
+                }}
                 className="flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg font-bold transition-colors cursor-pointer"
                 title="सॉफ्टवेयर से लॉगआउट करें"
               >

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 
 const BillingContext = createContext();
 
@@ -22,6 +23,7 @@ const DEFAULT_SETTINGS = {
   ownerName: 'राजेश कुमार (प्रोपराइटर)',
   billPrefix: 'INV-',
   nextBillSeq: 1001,
+  selectedTheme: 'classic', // 10 themes: classic | modern | compact | royal | emerald | minimal | crimson | ocean | amber | slate
   // Custom display visibility controls for seller & bill details
   displayOptions: {
     showFirmName: true,
@@ -59,38 +61,96 @@ const SAMPLE_BILLS = [
 ];
 
 export function BillingProvider({ children }) {
-  // Load Settings from LocalStorage or default
-  const [settings, setSettings] = useState(() => {
+  const { currentUser, users, restoreAllUsers } = useAuth();
+  const activeUserId = currentUser ? currentUser.id : 'guest';
+
+  // Helper: create initial settings for a user
+  const getInitialSettingsForUser = (userId, userObj) => {
     try {
-      const saved = localStorage.getItem('billing_app_settings');
+      const scopedKey = `billing_app_settings_${userId}`;
+      const saved = localStorage.getItem(scopedKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         return {
           ...DEFAULT_SETTINGS,
           ...parsed,
-          ownerName: parsed.ownerName || DEFAULT_SETTINGS.ownerName,
-          signatoryText: parsed.signatoryText || DEFAULT_SETTINGS.signatoryText,
+          ownerName: parsed.ownerName || userObj?.profile?.name || DEFAULT_SETTINGS.ownerName,
+          firmName: parsed.firmName || userObj?.profile?.shopName || DEFAULT_SETTINGS.firmName,
+          selectedTheme: parsed.selectedTheme || DEFAULT_SETTINGS.selectedTheme,
           displayOptions: {
             ...DEFAULT_SETTINGS.displayOptions,
             ...(parsed.displayOptions || {})
           }
         };
       }
-      return DEFAULT_SETTINGS;
-    } catch {
-      return DEFAULT_SETTINGS;
-    }
-  });
 
-  // Load Bills from LocalStorage or sample bills
-  const [bills, setBills] = useState(() => {
-    try {
-      const saved = localStorage.getItem('billing_app_bills');
-      return saved ? JSON.parse(saved) : SAMPLE_BILLS;
+      // Check legacy global settings if demo user
+      if (userId === 'seller_demo') {
+        const legacy = localStorage.getItem('billing_app_settings');
+        if (legacy) {
+          const parsed = JSON.parse(legacy);
+          return {
+            ...DEFAULT_SETTINGS,
+            ...parsed,
+            ownerName: parsed.ownerName || DEFAULT_SETTINGS.ownerName,
+            selectedTheme: parsed.selectedTheme || DEFAULT_SETTINGS.selectedTheme,
+            displayOptions: {
+              ...DEFAULT_SETTINGS.displayOptions,
+              ...(parsed.displayOptions || {})
+            }
+          };
+        }
+      }
+
+      // Fresh settings based on user's profile
+      if (userObj?.profile) {
+        return {
+          ...DEFAULT_SETTINGS,
+          firmName: userObj.profile.shopName || DEFAULT_SETTINGS.firmName,
+          ownerName: userObj.profile.name || DEFAULT_SETTINGS.ownerName,
+          mobile: userObj.profile.mobile || DEFAULT_SETTINGS.mobile,
+          address: userObj.profile.address || DEFAULT_SETTINGS.address,
+          email: userObj.profile.email || DEFAULT_SETTINGS.email,
+          selectedTheme: 'classic'
+        };
+      }
+
+      return DEFAULT_SETTINGS;
     } catch {
-      return SAMPLE_BILLS;
+      return DEFAULT_SETTINGS;
     }
-  });
+  };
+
+  // Helper: get initial bills for a user
+  const getInitialBillsForUser = (userId) => {
+    try {
+      const scopedKey = `billing_app_bills_${userId}`;
+      const saved = localStorage.getItem(scopedKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+
+      // Demo user gets sample bills or migrated legacy bills
+      if (userId === 'seller_demo') {
+        const legacy = localStorage.getItem('billing_app_bills');
+        if (legacy) {
+          const parsed = JSON.parse(legacy);
+          return Array.isArray(parsed) ? parsed : SAMPLE_BILLS;
+        }
+        return SAMPLE_BILLS;
+      }
+
+      // Any other regular user starts with an empty clean slate!
+      return [];
+    } catch {
+      return userId === 'seller_demo' ? SAMPLE_BILLS : [];
+    }
+  };
+
+  // Active user's scoped states
+  const [settings, setSettings] = useState(() => getInitialSettingsForUser(activeUserId, currentUser));
+  const [bills, setBills] = useState(() => getInitialBillsForUser(activeUserId));
 
   // Current bill being edited (null = new bill mode)
   const [editingBill, setEditingBill] = useState(null);
@@ -99,87 +159,41 @@ export function BillingProvider({ children }) {
   const [activeTab, setActiveTab] = useState('generate');
 
   // Currently active bill specifically assigned for printing (renders at root level)
-  const [activePrintBill, setActivePrintBill] = useState(SAMPLE_BILLS[0]);
+  const [activePrintBill, setActivePrintBill] = useState(null);
 
-  // Save Settings to LocalStorage
+  // Sync state whenever the active user logs in, out, or switches accounts!
   useEffect(() => {
-    try {
-      localStorage.setItem('billing_app_settings', JSON.stringify(settings));
-    } catch (e) {
-      console.error('Failed to save settings to localStorage', e);
-    }
-  }, [settings]);
-
-  // Save Bills to LocalStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem('billing_app_bills', JSON.stringify(bills));
-    } catch (e) {
-      console.error('Failed to save bills to localStorage', e);
-    }
-  }, [bills]);
-
-  // Generate Next Bill Number
-  const generateNextBillNo = () => {
-    return `${settings.billPrefix}${settings.nextBillSeq}`;
-  };
-
-  // Trigger Print reliably for any bill
-  const triggerPrint = (billData) => {
-    if (!billData) return;
-    setActivePrintBill(billData);
-    setTimeout(() => {
-      window.print();
-    }, 150);
-  };
-
-  // Save or Update Bill
-  const saveBill = (billData) => {
-    const isEdit = Boolean(billData.id && bills.some(b => b.id === billData.id));
-    let savedRecord;
-
-    if (isEdit) {
-      savedRecord = {
-        ...billData,
-        updatedAt: new Date().toISOString()
-      };
-      setBills(prev => prev.map(b => (b.id === billData.id ? savedRecord : b)));
+    const userSettings = getInitialSettingsForUser(activeUserId, currentUser);
+    const userBills = getInitialBillsForUser(activeUserId);
+    setSettings(userSettings);
+    setBills(userBills);
+    setEditingBill(null);
+    if (userBills.length > 0) {
+      setActivePrintBill(userBills[0]);
     } else {
-      const newId = `bill-${Date.now()}`;
-      savedRecord = {
-        ...billData,
-        id: newId,
-        billNo: billData.billNo || generateNextBillNo(),
-        createdAt: new Date().toISOString()
-      };
-      setBills(prev => [savedRecord, ...prev]);
-
-      // Increment sequence number
-      setSettings(prev => ({
-        ...prev,
-        nextBillSeq: Number(prev.nextBillSeq) + 1
-      }));
+      setActivePrintBill(null);
     }
+  }, [activeUserId]);
 
-    setEditingBill(null);
-    return savedRecord;
-  };
+  // Save Settings to scoped LocalStorage
+  useEffect(() => {
+    if (!activeUserId) return;
+    try {
+      localStorage.setItem(`billing_app_settings_${activeUserId}`, JSON.stringify(settings));
+    } catch (e) {
+      console.error('Failed to save scoped settings to localStorage', e);
+    }
+  }, [settings, activeUserId]);
 
-  // Delete Bill
-  const deleteBill = (id) => {
-    setBills(prev => prev.filter(b => b.id !== id));
-  };
-
-  // Start editing a bill
-  const startEditingBill = (bill) => {
-    setEditingBill(bill);
-    setActiveTab('generate');
-  };
-
-  // Cancel editing
-  const cancelEditing = () => {
-    setEditingBill(null);
-  };
+  // Save Bills to scoped LocalStorage
+  useEffect(() => {
+    if (!activeUserId) return;
+    try {
+      localStorage.setItem(`billing_app_bills_${activeUserId}`, JSON.stringify(bills));
+    } catch (e) {
+      console.error('Failed to save scoped bills to localStorage', e);
+    }
+  }, [bills, activeUserId]);
 
   // Update Settings
   const updateSettings = (newSettings) => {
@@ -193,36 +207,239 @@ export function BillingProvider({ children }) {
     }));
   };
 
+  // Change Active Theme
+  const setTheme = (themeId) => {
+    updateSettings({ selectedTheme: themeId });
+  };
+
   // Reset Settings to Defaults
   const resetSettings = () => {
-    setSettings(DEFAULT_SETTINGS);
-  };
-
-  // Export Data to JSON file
-  const exportData = () => {
-    const backup = {
-      settings,
-      bills,
-      exportedAt: new Date().toISOString()
-    };
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `billing_backup_${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Import Data from JSON file
-  const importData = (jsonData) => {
-    try {
-      if (jsonData.settings) setSettings(jsonData.settings);
-      if (jsonData.bills && Array.isArray(jsonData.bills)) setBills(jsonData.bills);
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message };
+    if (currentUser?.profile) {
+      setSettings({
+        ...DEFAULT_SETTINGS,
+        firmName: currentUser.profile.shopName || DEFAULT_SETTINGS.firmName,
+        ownerName: currentUser.profile.name || DEFAULT_SETTINGS.ownerName,
+        mobile: currentUser.profile.mobile || DEFAULT_SETTINGS.mobile,
+        address: currentUser.profile.address || DEFAULT_SETTINGS.address,
+        email: currentUser.profile.email || DEFAULT_SETTINGS.email
+      });
+    } else {
+      setSettings(DEFAULT_SETTINGS);
     }
+  };
+
+  // Generate Next Bill Number
+  const generateNextBillNo = () => {
+    const prefix = settings.billPrefix || 'INV-';
+    const seq = settings.nextBillSeq || 1001;
+    return `${prefix}${seq}`;
+  };
+
+  // Save Bill (Create New or Update Existing)
+  const saveBill = (billData) => {
+    const isEdit = !!billData.id;
+    let finalBill;
+
+    if (isEdit) {
+      finalBill = {
+        ...billData,
+        updatedAt: new Date().toISOString()
+      };
+      setBills(prev => prev.map(b => (b.id === finalBill.id ? finalBill : b)));
+      setEditingBill(null);
+    } else {
+      const newBillNo = billData.billNo || generateNextBillNo();
+      finalBill = {
+        ...billData,
+        id: `bill-${Date.now()}`,
+        billNo: newBillNo,
+        createdAt: new Date().toISOString()
+      };
+
+      setBills(prev => [finalBill, ...prev]);
+
+      // Increment sequence number automatically
+      setSettings(prev => ({
+        ...prev,
+        nextBillSeq: (prev.nextBillSeq || 1001) + 1
+      }));
+    }
+
+    return finalBill;
+  };
+
+  // Delete Bill
+  const deleteBill = (id) => {
+    setBills(prev => prev.filter(b => b.id !== id));
+    if (editingBill && editingBill.id === id) {
+      setEditingBill(null);
+    }
+  };
+
+  // Start editing an existing bill
+  const startEditingBill = (bill) => {
+    setEditingBill(bill);
+    setActiveTab('generate');
+  };
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setEditingBill(null);
+  };
+
+  // Trigger Print for a Bill
+  const triggerPrint = (bill) => {
+    setActivePrintBill(bill);
+    setTimeout(() => {
+      window.print();
+    }, 150);
+  };
+
+  // --------------------------------------------------------------------------
+  // 1. USER PERSONAL DATA BACKUP (Export & Import for Current Logged-in User)
+  // --------------------------------------------------------------------------
+  const exportUserData = () => {
+    const exportPayload = {
+      backupType: 'user_personal_backup',
+      version: '1.0',
+      userId: activeUserId,
+      userShop: settings.firmName,
+      ownerName: settings.ownerName,
+      exportedAt: new Date().toISOString(),
+      settings: settings,
+      bills: bills
+    };
+
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(exportPayload, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute(
+      'download',
+      `billing_backup_${settings.firmName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`
+    );
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    return true;
+  };
+
+  const importUserData = (jsonData) => {
+    try {
+      const parsed = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
+
+      // Reject master backup on regular user import
+      if (parsed.backupType === 'master_database_backup') {
+        throw new Error('यह मास्टर डेटाबेस बैकअप है। इसे केवल सुपर एडमिन पोर्टल से रीस्टोर किया जा सकता है।');
+      }
+
+      if (parsed.settings) {
+        setSettings(prev => ({
+          ...DEFAULT_SETTINGS,
+          ...parsed.settings
+        }));
+      }
+
+      if (Array.isArray(parsed.bills)) {
+        setBills(parsed.bills);
+      }
+
+      return { success: true, message: 'आपका व्यक्तिगत डेटा सफलतापूर्वक रीस्टोर कर लिया गया है!' };
+    } catch (err) {
+      return { success: false, message: err.message || 'अमान्य बैकअप फाइल।' };
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // 2. SUPER ADMIN MASTER DATABASE BACKUP (Full Project Master Export & Import)
+  // --------------------------------------------------------------------------
+  const exportMasterDatabase = () => {
+    const allUsersData = {};
+
+    // Collect bills and settings for every user registered in the system
+    (users || []).forEach(u => {
+      const uSettings = getInitialSettingsForUser(u.id, u);
+      const uBills = getInitialBillsForUser(u.id);
+      allUsersData[u.id] = {
+        userProfile: u.profile,
+        username: u.username,
+        role: u.role,
+        status: u.status,
+        permissions: u.permissions,
+        settings: uSettings,
+        bills: uBills
+      };
+    });
+
+    const masterPayload = {
+      backupType: 'master_database_backup',
+      version: '2.0',
+      exportedBy: 'superadmin',
+      exportedAt: new Date().toISOString(),
+      totalUsers: users.length,
+      users: users,
+      allUsersData: allUsersData
+    };
+
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(masterPayload, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute(
+      'download',
+      `SMART_BILLING_MASTER_BACKUP_${new Date().toISOString().split('T')[0]}.json`
+    );
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    return true;
+  };
+
+  const importMasterDatabase = (jsonData) => {
+    try {
+      const parsed = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
+
+      if (parsed.backupType !== 'master_database_backup' && !parsed.allUsersData) {
+        throw new Error('अमान्य मास्टर बैकअप फाइल। कृपया सही संपूर्ण मास्टर बैकअप JSON चुनें।');
+      }
+
+      // 1. Restore Users in AuthContext
+      if (Array.isArray(parsed.users) && parsed.users.length > 0) {
+        restoreAllUsers(parsed.users);
+      }
+
+      // 2. Restore scoped storage for every user
+      if (parsed.allUsersData) {
+        Object.entries(parsed.allUsersData).forEach(([uId, uData]) => {
+          if (uData.settings) {
+            localStorage.setItem(`billing_app_settings_${uId}`, JSON.stringify(uData.settings));
+          }
+          if (Array.isArray(uData.bills)) {
+            localStorage.setItem(`billing_app_bills_${uId}`, JSON.stringify(uData.bills));
+          }
+        });
+      }
+
+      // Refresh current user's active view
+      setSettings(getInitialSettingsForUser(activeUserId, currentUser));
+      setBills(getInitialBillsForUser(activeUserId));
+
+      return { success: true, message: 'संपूर्ण प्रोजेक्ट का मास्टर डेटाबेस सफलतापूर्वक रीस्टोर हो गया है!' };
+    } catch (err) {
+      return { success: false, message: err.message || 'मास्टर डेटाबेस रीस्टोर विफल रहा।' };
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // 3. SUPER ADMIN INSPECTION HELPERS (View any user's bills & stats)
+  // --------------------------------------------------------------------------
+  const getUserBills = (targetUserId) => {
+    return getInitialBillsForUser(targetUserId);
+  };
+
+  const getUserStats = (targetUserId) => {
+    const userBills = getInitialBillsForUser(targetUserId);
+    const count = userBills.length;
+    const totalSales = userBills.reduce((sum, b) => sum + Number(b.grandTotal || 0), 0);
+    return { count, totalSales };
   };
 
   return (
@@ -230,6 +447,7 @@ export function BillingProvider({ children }) {
       value={{
         settings,
         updateSettings,
+        setTheme,
         resetSettings,
         bills,
         saveBill,
@@ -237,14 +455,20 @@ export function BillingProvider({ children }) {
         editingBill,
         startEditingBill,
         cancelEditing,
-        generateNextBillNo,
         activeTab,
         setActiveTab,
         activePrintBill,
         setActivePrintBill,
+        generateNextBillNo,
         triggerPrint,
-        exportData,
-        importData
+        exportUserData,
+        importUserData,
+        exportData: exportUserData,
+        importData: importUserData,
+        exportMasterDatabase,
+        importMasterDatabase,
+        getUserBills,
+        getUserStats
       }}
     >
       {children}

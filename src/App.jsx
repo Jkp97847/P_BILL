@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { ToastProvider } from './context/ToastContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { BillingProvider, useBilling } from './context/BillingContext';
 import Navbar from './components/Navbar';
@@ -64,10 +65,12 @@ function MainApp() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BillingProvider>
-        <MainApp />
-      </BillingProvider>
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <BillingProvider>
+          <MainApp />
+        </BillingProvider>
+      </AuthProvider>
+    </ToastProvider>
   );
 }

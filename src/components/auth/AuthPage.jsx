@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import MathCaptcha from './MathCaptcha';
 import { 
   Lock, 
@@ -24,6 +25,7 @@ import {
 
 export default function AuthPage() {
   const { login, signup, forgotPasswordReset } = useAuth();
+  const { showToast } = useToast();
 
   // Mode: 'login' | 'signup' | 'admin_login'
   const [authMode, setAuthMode] = useState('login');
@@ -80,7 +82,9 @@ export default function AuthPage() {
     setSuccessMsg('');
 
     if (parseInt(loginCaptchaInput) !== loginExpectedCaptcha) {
-      setErrorMsg('गणितीय कैप्चा का उत्तर गलत है! कृपया सही उत्तर लिखें।');
+      const err = 'गणितीय कैप्चा का उत्तर गलत है! कृपया सही उत्तर लिखें।';
+      showToast('error', err, 'कैप्चा त्रुटि');
+      setErrorMsg(err);
       setLoginCaptchaKey(k => k + 1);
       setLoginCaptchaInput('');
       return;
@@ -91,9 +95,12 @@ export default function AuthPage() {
     setLoading(false);
 
     if (!res.success) {
+      showToast('error', res.message || 'अमान्य पासवर्ड या उपयोगकर्ता!', 'लॉगिन विफल');
       setErrorMsg(res.message);
       setLoginCaptchaKey(k => k + 1);
       setLoginCaptchaInput('');
+    } else {
+      showToast('success', `लॉगिन सफल! स्वागत है ${res.user?.profile?.name || res.user?.username}`, 'लॉगिन सफल');
     }
   };
 
@@ -104,24 +111,32 @@ export default function AuthPage() {
     setSuccessMsg('');
 
     if (parseInt(signupCaptchaInput) !== signupExpectedCaptcha) {
-      setErrorMsg('गणितीय कैप्चा का उत्तर गलत है! कृपया सही उत्तर लिखें।');
+      const err = 'गणितीय कैप्चा का उत्तर गलत है! कृपया सही उत्तर लिखें।';
+      showToast('error', err, 'कैप्चा त्रुटि');
+      setErrorMsg(err);
       setSignupCaptchaKey(k => k + 1);
       setSignupCaptchaInput('');
       return;
     }
 
     if (signupData.password !== signupData.confirmPassword) {
-      setErrorMsg('पासवर्ड और कन्फर्म पासवर्ड मेल नहीं खाते!');
+      const err = 'पासवर्ड और कन्फर्म पासवर्ड मेल नहीं खाते!';
+      showToast('error', err, 'त्रुटि');
+      setErrorMsg(err);
       return;
     }
 
     if (signupData.password.length < 4) {
-      setErrorMsg('पासवर्ड कम से कम 4 अक्षरों का होना चाहिए।');
+      const err = 'पासवर्ड कम से कम 4 अक्षरों का होना चाहिए।';
+      showToast('error', err, 'त्रुटि');
+      setErrorMsg(err);
       return;
     }
 
     if (signupData.mobile.length < 10) {
-      setErrorMsg('कृपया वैध 10-अंकों का मोबाइल नंबर दर्ज करें।');
+      const err = 'कृपया वैध 10-अंकों का मोबाइल नंबर दर्ज करें।';
+      showToast('error', err, 'त्रुटि');
+      setErrorMsg(err);
       return;
     }
 
@@ -130,10 +145,12 @@ export default function AuthPage() {
     setLoading(false);
 
     if (!res.success) {
+      showToast('error', res.message || 'खाता निर्माण विफल!', 'पंजीकरण त्रुटि');
       setErrorMsg(res.message);
       setSignupCaptchaKey(k => k + 1);
       setSignupCaptchaInput('');
     } else {
+      showToast('success', 'नया खाता सफलतापूर्वक बन गया! सॉफ्टवेयर प्रारंभ हो रहा है...', 'पंजीकरण सफल');
       setSuccessMsg('खाता सफलतापूर्वक बन गया! सॉफ्टवेयर शुरू हो रहा है...');
     }
   };
@@ -145,7 +162,9 @@ export default function AuthPage() {
     setSuccessMsg('');
 
     if (parseInt(adminCaptchaInput) !== adminExpectedCaptcha) {
-      setErrorMsg('एडमिन गणितीय कैप्चा का उत्तर गलत है! कृपया सही उत्तर लिखें।');
+      const err = 'एडमिन गणितीय कैप्चा का उत्तर गलत है! कृपया सही उत्तर लिखें।';
+      showToast('error', err, 'कैप्चा त्रुटि');
+      setErrorMsg(err);
       setAdminCaptchaKey(k => k + 1);
       setAdminCaptchaInput('');
       return;
@@ -156,9 +175,12 @@ export default function AuthPage() {
     setLoading(false);
 
     if (!res.success) {
+      showToast('error', res.message || 'अमान्य एडमिन पासवर्ड या उपयोगकर्ता!', 'एडमिन लॉगिन विफल');
       setErrorMsg(res.message);
       setAdminCaptchaKey(k => k + 1);
       setAdminCaptchaInput('');
+    } else {
+      showToast('success', 'सुपर एडमिन कंट्रोल पोर्टल में प्रवेश सफल!', 'एडमिन लॉगिन सफल');
     }
   };
 
@@ -168,7 +190,9 @@ export default function AuthPage() {
     setForgotFeedback({ type: '', message: '' });
 
     if (parseInt(forgotCaptchaInput) !== forgotExpectedCaptcha) {
-      setForgotFeedback({ type: 'error', message: 'गणितीय कैप्चा गलत है! कृपया सही उत्तर लिखें।' });
+      const err = 'गणितीय कैप्चा गलत है! कृपया सही उत्तर लिखें।';
+      showToast('error', err, 'कैप्चा त्रुटि');
+      setForgotFeedback({ type: 'error', message: err });
       setForgotCaptchaKey(k => k + 1);
       setForgotCaptchaInput('');
       return;
@@ -176,12 +200,14 @@ export default function AuthPage() {
 
     const res = forgotPasswordReset(forgotUsername, forgotMobile, forgotNewPass);
     if (res.success) {
+      showToast('success', res.message || 'पासवर्ड सफलतापूर्वक बदल दिया गया!', 'पासवर्ड रीसेट सफल');
       setForgotFeedback({ type: 'success', message: res.message });
       setTimeout(() => {
         setForgotModalOpen(false);
         setForgotFeedback({ type: '', message: '' });
       }, 3000);
     } else {
+      showToast('error', res.message || 'पासवर्ड रीसेट विफल रहा।', 'त्रुटि');
       setForgotFeedback({ type: 'error', message: res.message });
       setForgotCaptchaKey(k => k + 1);
       setForgotCaptchaInput('');

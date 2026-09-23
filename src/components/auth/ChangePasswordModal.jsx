@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import MathCaptcha from './MathCaptcha';
 import { KeyRound, X, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 export default function ChangePasswordModal({ isOpen, onClose }) {
   const { currentUser, changePassword } = useAuth();
+  const { showToast } = useToast();
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -28,7 +30,9 @@ export default function ChangePasswordModal({ isOpen, onClose }) {
 
     // Verify Captcha
     if (parseInt(captchaInput) !== expectedCaptcha) {
-      setErrorMsg('गणितीय कैप्चा का उत्तर गलत है! कृपया सही उत्तर लिखें।');
+      const err = 'गणितीय कैप्चा का उत्तर गलत है! कृपया सही उत्तर लिखें।';
+      showToast('error', err, 'कैप्चा त्रुटि');
+      setErrorMsg(err);
       setCaptchaKey(k => k + 1);
       setCaptchaInput('');
       return;
@@ -36,17 +40,22 @@ export default function ChangePasswordModal({ isOpen, onClose }) {
 
     // Verify new passwords match
     if (newPassword !== confirmPassword) {
-      setErrorMsg('नया पासवर्ड और पुष्टि पासवर्ड मेल नहीं खाते!');
+      const err = 'नया पासवर्ड और पुष्टि पासवर्ड मेल नहीं खाते!';
+      showToast('error', err, 'त्रुटि');
+      setErrorMsg(err);
       return;
     }
 
     if (newPassword.length < 4) {
-      setErrorMsg('नया पासवर्ड कम से कम 4 अक्षरों का होना चाहिए।');
+      const err = 'नया पासवर्ड कम से कम 4 अक्षरों का होना चाहिए।';
+      showToast('error', err, 'त्रुटि');
+      setErrorMsg(err);
       return;
     }
 
     const res = changePassword(currentUser.id, currentPassword, newPassword);
     if (res.success) {
+      showToast('success', res.message || 'पासवर्ड सफलतापूर्वक बदल दिया गया!', 'पासवर्ड अपडेट सफल');
       setSuccessMsg(res.message);
       setCurrentPassword('');
       setNewPassword('');
@@ -55,8 +64,9 @@ export default function ChangePasswordModal({ isOpen, onClose }) {
       setTimeout(() => {
         setSuccessMsg('');
         onClose();
-      }, 2000);
+      }, 1500);
     } else {
+      showToast('error', res.message || 'पासवर्ड बदलने में त्रुटि!', 'त्रुटि');
       setErrorMsg(res.message);
       setCaptchaKey(k => k + 1);
       setCaptchaInput('');

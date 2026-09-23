@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useBilling } from '../../context/BillingContext';
+import { useToast } from '../../context/ToastContext';
 import PrintableBill from '../PrintableBill';
 import { 
   Plus, 
@@ -28,6 +29,8 @@ export default function BillGenerateTab() {
     triggerPrint,
     setActivePrintBill
   } = useBilling();
+
+  const { showToast } = useToast();
 
   // Form State
   const [billNo, setBillNo] = useState('');
@@ -139,11 +142,15 @@ export default function BillGenerateTab() {
 
     const saved = saveBill(billData);
 
+    const successMsg = editingBill
+      ? `बिल ${saved.billNo} सफलतापूर्वक अपडेट कर दिया गया!`
+      : `बिल ${saved.billNo} सफलतापूर्वक बन गया! (कुल राशि: ₹${saved.grandTotal})`;
+
+    showToast('success', successMsg, editingBill ? 'बिल अपडेट' : 'बिल जनरेट सफल');
+
     setNotification({
       type: 'success',
-      message: editingBill
-        ? `बिल ${saved.billNo} सफलतापूर्वक अपडेट कर दिया गया!`
-        : `बिल ${saved.billNo} सफलतापूर्वक सेव कर लिया गया!`
+      message: successMsg
     });
 
     if (shouldPrint) {

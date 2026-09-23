@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useBilling } from '../../context/BillingContext';
+import { useToast } from '../../context/ToastContext';
 import PrintableBill from '../PrintableBill';
 import GaneshLogo from '../GaneshLogo';
 import DigitalSignatureBadge from '../DigitalSignatureBadge';
@@ -10,6 +11,7 @@ import {
   Trash2, 
   Plus, 
   CheckCircle, 
+  CheckCircle2,
   RotateCcw, 
   Save, 
   Eye, 
@@ -19,15 +21,102 @@ import {
   MapPin,
   FileSignature,
   Sliders,
-  Mail
+  Mail,
+  Palette,
+  Sparkles
 } from 'lucide-react';
 
+const THEME_OPTIONS = [
+  {
+    id: 'classic',
+    name: '1. क्लासिक जीएसटी',
+    badge: 'Classic Slate',
+    tag: 'पारंपरिक एवं स्टैंडर्ड व्यापारिक बिल',
+    border: 'border-slate-800',
+    accent: 'bg-slate-800 text-white'
+  },
+  {
+    id: 'modern',
+    name: '2. मॉडर्न इंडिगो',
+    badge: 'Modern Indigo',
+    tag: 'आधुनिक एवं आकर्षक कॉर्पोरेट लेआउट',
+    border: 'border-indigo-600',
+    accent: 'bg-indigo-600 text-white'
+  },
+  {
+    id: 'compact',
+    name: '3. कॉम्पैक्ट रसीद',
+    badge: 'Compact POS',
+    tag: 'फास्ट 1-पेज रसीद, कम मार्जिन व स्याही बचत',
+    border: 'border-zinc-700',
+    accent: 'bg-zinc-700 text-white'
+  },
+  {
+    id: 'minimalist',
+    name: '4. मिनिमलिस्ट ब्लैक',
+    badge: 'Minimal High-Contrast',
+    tag: 'स्पष्ट डार्क बॉर्डर, शार्प मोनोक्रोम प्रिंट',
+    border: 'border-black',
+    accent: 'bg-black text-white'
+  },
+  {
+    id: 'royal',
+    name: '5. रॉयल पर्पल',
+    badge: 'Royal Showroom',
+    tag: 'शानदार शोरूम, ज्वैलरी व प्रीमियम स्टोर',
+    border: 'border-purple-800',
+    accent: 'bg-purple-900 text-white'
+  },
+  {
+    id: 'emerald',
+    name: '6. एमराल्ड ग्रीन',
+    badge: 'Emerald Green',
+    tag: 'स्वच्छ हरा रंग, किराना, कृषि व नेचुरल',
+    border: 'border-emerald-700',
+    accent: 'bg-emerald-700 text-white'
+  },
+  {
+    id: 'crimson',
+    name: '7. क्रिम्सन रूबी',
+    badge: 'Crimson Ruby',
+    tag: 'बोल्ड रेड, गारमेंट्स व ऑटोमोबाइल्स',
+    border: 'border-rose-700',
+    accent: 'bg-rose-700 text-white'
+  },
+  {
+    id: 'ocean',
+    name: '8. ओशन स्यान',
+    badge: 'Ocean Cyan',
+    tag: 'शांत ब्लू टोन, इलेक्ट्रॉनिक्स व हार्डवेयर',
+    border: 'border-cyan-700',
+    accent: 'bg-cyan-800 text-white'
+  },
+  {
+    id: 'amber',
+    name: '9. एम्बर गोल्ड',
+    badge: 'Amber Gold',
+    tag: 'गोल्डन एम्बर, मिठाई, गिफ्ट व वेडिंग',
+    border: 'border-amber-700',
+    accent: 'bg-amber-700 text-white'
+  },
+  {
+    id: 'slate',
+    name: '10. ग्रेफाइट स्लेट',
+    badge: 'Graphite Slate',
+    tag: 'आधुनिक इंजीनियरिंग, मशीनरी व हैवी गुड्स',
+    border: 'border-slate-700',
+    accent: 'bg-slate-700 text-white'
+  }
+];
+
 export default function FormatEditTab() {
-  const { settings, updateSettings, resetSettings } = useBilling();
+  const { settings, updateSettings, setTheme, resetSettings } = useBilling();
+  const { showToast } = useToast();
 
   // Local form state cloned from settings
   const [formData, setFormData] = useState({
     ...settings,
+    selectedTheme: settings.selectedTheme || 'classic',
     ownerName: settings.ownerName || 'राजेश कुमार (प्रोपराइटर)',
     signatoryText: settings.signatoryText || 'अधिकृत हस्ताक्षरकर्ता / Authorized Signatory',
     displayOptions: {
@@ -108,10 +197,18 @@ export default function FormatEditTab() {
     setFormData(prev => ({ ...prev, logo: '' }));
   };
 
+  // Select Active Theme among 10 options
+  const handleSelectTheme = (themeId, themeName) => {
+    setFormData(prev => ({ ...prev, selectedTheme: themeId }));
+    setTheme(themeId);
+    showToast('success', `${themeName} फॉर्मेट सक्रिय किया गया! अब सभी बिल इसी डिजाइन में बनेंगे।`, 'थीम सफलतापूर्वक लागू की गई');
+  };
+
   // Save Settings
   const handleSave = (e) => {
     e?.preventDefault();
     updateSettings(formData);
+    showToast('success', 'बिल फॉर्मेट और फर्म सेटिंग्स सफलतापूर्वक सेव कर ली गईं!', 'सेटिंग्स सुरक्षित');
     setNotification('बिल फॉर्मेट और फर्म सेटिंग्स सफलतापूर्वक सेव कर ली गईं!');
     setTimeout(() => setNotification(null), 3500);
   };
@@ -120,6 +217,7 @@ export default function FormatEditTab() {
   const handleReset = () => {
     if (window.confirm('क्या आप सभी सेटिंग्स को डिफ़ॉल्ट रूप में रीसेट करना चाहते हैं?')) {
       resetSettings();
+      showToast('info', 'सेटिंग्स डिफ़ॉल्ट पर रीसेट कर दी गईं!', 'डिफ़ॉल्ट रीसेट');
       setNotification('सेटिंग्स डिफ़ॉल्ट पर रीसेट कर दी गईं!');
       setTimeout(() => setNotification(null), 3000);
     }
@@ -188,6 +286,71 @@ export default function FormatEditTab() {
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
+        {/* SECTION: 10 BILL DESIGN THEMES */}
+        <div className="bg-white rounded-xl shadow-xs border-2 border-indigo-200 p-5">
+          <div className="border-b border-indigo-100 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                <Palette className="w-5 h-5 text-indigo-600" />
+                <span>10 बिल डिजाइन थीम्स (Choose from 10 Professional Bill Formats)</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                अपनी पसंद का कोई भी 1 फॉर्मेट चुनें। चुने जाने के बाद बिल जनरेशन, प्रीव्यू, प्रिंट व रिपोर्ट्स में वही फॉर्मेट काम करेगा।
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>सक्रिय: {THEME_OPTIONS.find(t => t.id === (formData.selectedTheme || 'classic'))?.name || '1. क्लासिक जीएसटी'}</span>
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+            {THEME_OPTIONS.map((th) => {
+              const isSelected = (formData.selectedTheme || 'classic') === th.id;
+              return (
+                <button
+                  key={th.id}
+                  type="button"
+                  onClick={() => handleSelectTheme(th.id, th.name)}
+                  className={`text-left p-3.5 rounded-xl border-2 transition-all relative flex flex-col justify-between cursor-pointer ${
+                    isSelected
+                      ? `${th.border} bg-indigo-50/50 shadow-md ring-2 ring-indigo-500 ring-offset-1`
+                      : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/60 shadow-2xs'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-1 mb-2">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${th.accent}`}>
+                        {th.badge}
+                      </span>
+                      {isSelected ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      ) : (
+                        <span className="w-3.5 h-3.5 rounded-full border border-slate-300"></span>
+                      )}
+                    </div>
+
+                    <div className="font-black text-xs text-slate-900 leading-snug">
+                      {th.name}
+                    </div>
+
+                    <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-tight">
+                      {th.tag}
+                    </p>
+                  </div>
+
+                  <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                    <span className={`font-semibold ${isSelected ? 'text-indigo-600 font-bold' : 'text-slate-400'}`}>
+                      {isSelected ? '✓ एक्टिव फॉर्मेट' : 'क्लिक कर सेट करें'}
+                    </span>
+                    <span className="text-[9px] text-slate-400 font-mono">10 Rows</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* SECTION: Seller & Bill Details Display Visibility Control */}
         <div className="bg-white rounded-xl shadow-xs border-2 border-indigo-100 p-5">
           <div className="border-b border-indigo-100 pb-3 mb-4">

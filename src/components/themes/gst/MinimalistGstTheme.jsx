@@ -1,5 +1,6 @@
 import React from 'react';
 import GaneshLogo from '../../GaneshLogo';
+import DigitalSignatureBadge from '../../DigitalSignatureBadge';
 import { numberToHindiWords, numberToIndianWords } from '../../../utils/numberToWords';
 import UpiQrCode from '../../common/UpiQrCode';
 
@@ -18,58 +19,66 @@ export default function MinimalistGstTheme({ bill, settings }) {
   const shouldShowGanesh = disp.showGaneshLogo && currentSettings.showGaneshLogo;
 
   return (
-    <div className="bg-white text-black border-2 border-black p-5 max-w-4xl mx-auto shadow-sm text-xs leading-relaxed font-sans print:border-black print:p-4 print:shadow-none">
-      {/* 1. TOP HEADER - MINIMALIST HIGH CONTRAST */}
-      <div className="border-b-2 border-black pb-3 mb-2">
-        <div className="flex justify-between items-center text-[10px] font-mono font-bold uppercase tracking-wider pb-1 mb-1 border-b border-black">
-          <span>TAX INVOICE / जीएसटी बिल</span>
-          {shouldShowGanesh && (
-            <span className="font-sans font-bold text-black">
-              {currentSettings.ganeshText || '॥ श्री गणेशाय नमः ॥'}
-            </span>
+    <div id="printable-bill" className="bg-white text-black border-2 border-black p-5 max-w-4xl mx-auto shadow-sm text-xs leading-relaxed font-sans print:border-black print:p-4 print:shadow-none">
+      {/* 1. TOP HEADER */}
+      <div className="grid grid-cols-12 items-center border-b-2 border-black pb-2 mb-2 min-h-[56px] gap-2">
+        <div className="col-span-3 flex items-center justify-start">
+          {disp.showLogo && currentSettings.logo ? (
+            <img
+              src={currentSettings.logo}
+              alt="Logo"
+              className="w-16 h-16 object-contain border border-black p-0.5"
+            />
+          ) : (
+            <div className="w-16 h-16 hidden sm:block"></div>
           )}
-          <span>मूल प्रति / ORIGINAL FOR RECIPIENT</span>
         </div>
 
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-1">
-          <div className="flex items-center gap-3">
-            {disp.showLogo && currentSettings.logo && (
-              <img
-                src={currentSettings.logo}
-                alt="Logo"
-                className="w-14 h-14 object-contain border border-black p-0.5"
-              />
-            )}
-            <div>
-              {disp.showFirmName && (
-                <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-black">
-                  {currentSettings.firmName || 'फर्म का नाम'}
-                </h1>
-              )}
-              {disp.showTagline && currentSettings.tagline && (
-                <p className="text-xs font-medium text-black/80">{currentSettings.tagline}</p>
-              )}
-              {disp.showAddress && currentSettings.address && (
-                <p className="text-[11px] text-black font-normal mt-0.5">📍 {currentSettings.address}</p>
-              )}
+        <div className="col-span-6 text-center flex flex-col items-center justify-center">
+          {shouldShowGanesh && (
+            <GaneshLogo
+              showLogo={true}
+              text={currentSettings.ganeshText || '॥ श्री गणेशाय नमः ॥'}
+              size="md"
+            />
+          )}
+        </div>
+
+        <div className="col-span-3 text-right flex flex-col items-end justify-center text-xs font-semibold text-black space-y-0.5">
+          {disp.showMobile && currentSettings.mobile && (
+            <div className="flex items-center gap-1 font-bold text-black font-mono">
+              <span>📞</span>
+              <span>{currentSettings.mobile}</span>
             </div>
-          </div>
-
-          <div className="text-right text-xs space-y-0.5">
-            {disp.showMobile && currentSettings.mobile && (
-              <div className="font-mono font-bold text-black">📞 {currentSettings.mobile}</div>
-            )}
-            {disp.showAlternateMobile && currentSettings.alternateMobile && (
-              <div className="font-mono text-black/80">फोन 2: {currentSettings.alternateMobile}</div>
-            )}
-            {disp.showEmail && currentSettings.email && (
-              <div className="text-[10px] font-mono text-black/80">{currentSettings.email}</div>
-            )}
-          </div>
+          )}
+          {disp.showAlternateMobile && currentSettings.alternateMobile && (
+            <div className="text-[11px] font-mono text-black/80">📞 {currentSettings.alternateMobile}</div>
+          )}
+          {disp.showEmail && currentSettings.email && (
+            <div className="text-[10px] font-mono text-black/80">✉️ {currentSettings.email}</div>
+          )}
         </div>
+      </div>
 
-        {/* GSTIN & PAN bar */}
-        <div className="flex flex-wrap items-center justify-center gap-4 mt-2 pt-1.5 border-t border-black text-[11px] font-bold">
+      {/* Invoice Title */}
+      <div className="text-center my-1 border-y border-black py-0.5 font-mono text-[11px] font-black tracking-widest uppercase">
+        TAX INVOICE / कर बीजक (मूल प्रति / ORIGINAL)
+      </div>
+
+      {/* Firm Info */}
+      <div className="text-center border-b border-black pb-2 mb-2">
+        {disp.showFirmName && (
+          <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-black">
+            {currentSettings.firmName || 'फर्म का नाम'}
+          </h1>
+        )}
+        {disp.showTagline && currentSettings.tagline && (
+          <p className="text-xs font-medium text-black/80">{currentSettings.tagline}</p>
+        )}
+        {disp.showAddress && currentSettings.address && (
+          <p className="text-[11px] text-black font-normal mt-0.5">📍 {currentSettings.address}</p>
+        )}
+        <div className="flex flex-wrap items-center justify-center gap-4 mt-1.5 text-[11px] font-bold">
           {disp.showGstin && currentSettings.gstin && (
             <span className="border border-black px-2 py-0.5 font-mono">
               GSTIN: {currentSettings.gstin}
@@ -294,11 +303,13 @@ export default function MinimalistGstTheme({ bill, settings }) {
           )}
 
           {disp.showSignatory && (
-            <div className="w-full pt-4 mt-auto border-t border-dashed border-black/40">
-              <div className="text-[10px] font-bold uppercase">{currentSettings.firmName}</div>
-              <div className="text-[9px] text-black/70 mt-1">
-                {currentSettings.signatoryText || 'अधिकृत हस्ताक्षरकर्ता'}
-              </div>
+            <div className="w-full pt-2 mt-auto flex justify-center">
+              <DigitalSignatureBadge
+                ownerName={currentSettings.ownerName}
+                firmName={currentSettings.firmName}
+                signatoryText={currentSettings.signatoryText}
+                date={bill.date}
+              />
             </div>
           )}
         </div>

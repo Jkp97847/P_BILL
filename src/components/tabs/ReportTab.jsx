@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useBilling } from '../../context/BillingContext';
+import { useToast } from '../../context/ToastContext';
 import PrintableBill from '../PrintableBill';
 import { 
   Search, 
@@ -25,9 +26,11 @@ export default function ReportTab() {
     deleteBill,
     startEditingBill,
     triggerPrint,
-    exportData,
-    importData
+    exportUserData,
+    importUserData
   } = useBilling();
+
+  const { showToast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDateFilter, setSelectedDateFilter] = useState('');
@@ -83,8 +86,19 @@ export default function ReportTab() {
   const confirmDelete = (id) => {
     deleteBill(id);
     setDeleteConfirmId(null);
+    showToast('warning', 'बिल सफलतापूर्वक हटा दिया गया!', 'बिल हटाया गया');
     setNotification('बिल सफलतापूर्वक हटा दिया गया!');
     setTimeout(() => setNotification(null), 3000);
+  };
+
+  // Handle personal JSON backup export
+  const handleExport = () => {
+    try {
+      exportUserData();
+      showToast('success', 'आपका व्यक्तिगत डेटा बैकअप (.json) सफलतापूर्वक डाउनलोड हो गया!', 'बैकअप डाउनलोड');
+    } catch (err) {
+      showToast('error', 'बैकअप डाउनलोड में त्रुटि: ' + err.message, 'त्रुटि');
+    }
   };
 
   // Handle JSON backup import
@@ -96,14 +110,15 @@ export default function ReportTab() {
     reader.onload = (event) => {
       try {
         const json = JSON.parse(event.target.result);
-        const res = importData(json);
+        const res = importUserData(json);
         if (res.success) {
+          showToast('success', res.message || 'डेटा बैकअप सफलतापूर्वक रीस्टोर हो गया!', 'डेटा रीस्टोर सफल');
           setNotification('डेटा बैकअप सफलतापूर्वक रिस्टोर हो गया!');
         } else {
-          alert('फ़ाइल पढ़ने में त्रुटि: ' + res.error);
+          showToast('error', res.message || 'फ़ाइल पढ़ने में त्रुटि!', 'रीस्टोर विफल');
         }
       } catch (err) {
-        alert('अमान्य JSON फ़ाइल: ' + err.message);
+        showToast('error', 'अमान्य JSON फ़ाइल: ' + err.message, 'अमान्य फाइल');
       }
     };
     reader.readAsText(file);
@@ -212,8 +227,8 @@ export default function ReportTab() {
         {/* Data Backup buttons */}
         <div className="w-full md:w-auto flex items-center gap-2 justify-end">
           <button
-            onClick={exportData}
-            title="सभी बिलों का बैकअप डाउनलोड करें"
+            onClick={handleExport}
+            title="अपने सभी बिलों व सेटिंग्स का बैकअप डाउनलोड करें"
             className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
