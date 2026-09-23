@@ -8,6 +8,7 @@ import BillGenerateTab from './components/tabs/BillGenerateTab';
 import ReportTab from './components/tabs/ReportTab';
 import FormatEditTab from './components/tabs/FormatEditTab';
 import PrintableBill from './components/PrintableBill';
+import AdminDashboard from './components/admin/AdminDashboard';
 
 function MainApp() {
   const { currentUser } = useAuth();
@@ -32,6 +33,11 @@ function MainApp() {
   // Project is locked behind authentication
   if (!currentUser) {
     return <AuthPage />;
+  }
+
+  // If Super Admin logged in: Render full Admin Dashboard directly (no bill creation)!
+  if (currentUser.role === 'admin') {
+    return <AdminDashboard />;
   }
 
   return (

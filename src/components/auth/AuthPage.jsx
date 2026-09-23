@@ -150,8 +150,11 @@ export default function AuthPage() {
       setSignupCaptchaKey(k => k + 1);
       setSignupCaptchaInput('');
     } else {
-      showToast('success', 'नया खाता सफलतापूर्वक बन गया! सॉफ्टवेयर प्रारंभ हो रहा है...', 'पंजीकरण सफल');
-      setSuccessMsg('खाता सफलतापूर्वक बन गया! सॉफ्टवेयर शुरू हो रहा है...');
+      const msg = res.message || 'पंजीकरण सफल! आपका खाता सुपर एडमिन की स्वीकृति (Access Approval) के लिए लंबित है। स्वीकृति मिलते ही आप लॉगिन कर सकेंगे।';
+      showToast('success', msg, 'पंजीकरण सफल');
+      setSuccessMsg(msg);
+      setLoginUsername(signupData.username);
+      setAuthMode('login');
     }
   };
 

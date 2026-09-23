@@ -159,7 +159,7 @@ export function AuthProvider({ children }) {
       username: signupData.username.trim(),
       password: signupData.password,
       role: 'seller',
-      status: 'active', // can be 'active' or 'pending'
+      status: 'pending', // New users start as pending approval by admin
       createdAt: new Date().toISOString(),
       permissions: {
         canGenerateBills: true,
@@ -178,17 +178,55 @@ export function AuthProvider({ children }) {
     const updatedUsers = [...users, newUser];
     setUsers(updatedUsers);
 
-    // Auto-login new user
-    const sessionUser = {
-      id: newUser.id,
-      username: newUser.username,
-      role: newUser.role,
-      permissions: newUser.permissions,
-      profile: newUser.profile
-    };
-    setCurrentUser(sessionUser);
+    // Initialize 100% clean and isolated scoped data for this new user
+    try {
+      localStorage.setItem(`billing_app_bills_${newUser.id}`, JSON.stringify([]));
+      const initialScopedSettings = {
+        firmName: newUser.profile.shopName,
+        ownerName: newUser.profile.name,
+        mobile: newUser.profile.mobile,
+        email: newUser.profile.email,
+        address: newUser.profile.address,
+        tagline: 'होलसेल एवं रिटेल जनरल मर्चेंट',
+        gstin: '',
+        logo: '',
+        showGaneshLogo: true,
+        ganeshText: '॥ श्री गणेशाय नमः ॥',
+        terms: [
+          'बिका हुआ माल चेक करके लें।',
+          'गारंटी / वारंटी के लिए कंपनी से संपर्क करें।',
+          'भूल चूक लेनी देनी होगी (E. & O.E.)।'
+        ],
+        signatoryText: 'अधिकृत हस्ताक्षरकर्ता / Authorized Signatory',
+        billPrefix: 'INV-',
+        nextBillSeq: 1001,
+        selectedTheme: 'classic',
+        displayOptions: {
+          showFirmName: true,
+          showTagline: true,
+          showLogo: true,
+          showAddress: true,
+          showMobile: true,
+          showAlternateMobile: true,
+          showEmail: true,
+          showGstin: true,
+          showGaneshLogo: true,
+          showTerms: true,
+          showSignatory: true,
+          showWords: true
+        }
+      };
+      localStorage.setItem(`billing_app_settings_${newUser.id}`, JSON.stringify(initialScopedSettings));
+    } catch (e) {
+      console.error('Error initializing isolated user data:', e);
+    }
 
-    return { success: true, user: sessionUser };
+    return { 
+      success: true, 
+      pending: true,
+      user: newUser,
+      message: 'आपका खाता सफलतापूर्वक पंजीकृत हो गया है! सुपर एडमिन द्वारा स्वीकृति (Access Approval) मिलते ही आप लॉगिन कर सकेंगे।' 
+    };
   };
 
   // LOGOUT FUNCTION
@@ -279,7 +317,17 @@ export function AuthProvider({ children }) {
 
     const updatedUsers = users.map(u => u.id === userId ? { ...u, status } : u);
     setUsers(updatedUsers);
-    return { success: true, message: `यूजर स्थिति को "${status === 'active' ? 'सक्रिय' : status === 'pending' ? 'लंबित' : 'निलंबित'}" कर दिया गया।` };
+    return { success: true, message: `यूजर स्थिति को "${status === 'active' ? 'सक्रिय' : status === 'pending' ? 'लंबित' : 'अस्वीकृत/निलंबित'}" कर दिया गया।` };
+  };
+
+  // GRANT ACCESS / APPROVE USER
+  const approveUser = (userId) => {
+    return updateUserStatus(userId, 'active');
+  };
+
+  // DENY ACCESS / INACTIVATE USER
+  const denyUser = (userId) => {
+    return updateUserStatus(userId, 'inactive');
   };
 
   // UPDATE USER PERMISSIONS
@@ -353,6 +401,8 @@ export function AuthProvider({ children }) {
         adminResetPassword,
         forgotPasswordReset,
         updateUserStatus,
+        approveUser,
+        denyUser,
         updateUserPermissions,
         toggleUserStatus,
         deleteUser,
