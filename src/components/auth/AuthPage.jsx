@@ -735,32 +735,12 @@ export default function AuthPage() {
     }, 400);
   };
 
-  // Quick fill helper for default SELLER testing (seller1 / Seller@123456 -> 4-Tab Hub)
+  // Helper to fill demo seller credentials in input fields
   const handleFillSellerLogin = () => {
     setLoginUsername('seller1');
     setLoginPassword('Seller@123456');
     setCaptchaInput(String(captcha.answer));
     setErrorMsg('');
-  };
-
-  // Instant 1-Click Login directly as Seller (seller1) into the 4-Tab Hub
-  const handleDirectSellerLogin = () => {
-    setErrorMsg('');
-    setSuccessMsg('');
-    setLoading(true);
-    setTimeout(() => {
-      const res = login('seller1', 'Seller@123456');
-      setLoading(false);
-      if (!res.success) {
-        setWarningModal({
-          isOpen: true,
-          title: '⚠️ लॉगिन त्रुटि',
-          message: res.error,
-          type: 'error'
-        });
-        setErrorMsg(res.error);
-      }
-    }, 200);
   };
 
   const handleFillSuperAdminQuick = () => {
@@ -850,27 +830,16 @@ export default function AuthPage() {
                 </p>
               </div>
 
-              {/* Quick Fill & 1-Click Launch Buttons for Seller (4-Tab Hub) */}
-              <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
-                <button
-                  type="button"
-                  onClick={handleFillSellerLogin}
-                  className="text-[11px] font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1.5 rounded-lg cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                  title="डेमो सेलर क्रेडेंशियल भरें (seller1)"
-                >
-                  <span>⚡ सेलर भरें</span>
-                  <span className="font-mono bg-indigo-200/80 text-indigo-950 font-black px-1.5 py-0.2 rounded text-[10px]">seller1</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDirectSellerLogin}
-                  className="text-[11px] font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 px-3 py-1.5 rounded-lg cursor-pointer flex items-center gap-1.5 shadow-sm"
-                  title="1-क्लिक से सीधे 4-टैब बिलिंग हब में प्रवेश करें"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>🚀 1-क्लिक 4-टैब हब</span>
-                </button>
-              </div>
+              {/* Quick Fill Button to populate form fields */}
+              <button
+                type="button"
+                onClick={handleFillSellerLogin}
+                className="text-[11px] font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-lg cursor-pointer flex items-center gap-1.5 shadow-2xs shrink-0 self-start sm:self-auto"
+                title="डेमो सेलर क्रेडेंशियल भरें (seller1)"
+              >
+                <span>⚡ डिफ़ॉल्ट क्रेडेंशियल भरें</span>
+                <span className="font-mono bg-indigo-200/80 text-indigo-950 font-black px-1.5 py-0.2 rounded text-[10px]">seller1</span>
+              </button>
             </div>
 
             <form onSubmit={handleSellerLoginSubmit} className="space-y-4">
@@ -985,32 +954,6 @@ export default function AuthPage() {
                 )}
               </button>
             </form>
-
-              {/* 4-Tab Hub Fast-Access Demo Card */}
-              <div className="mt-4 p-3.5 bg-gradient-to-r from-indigo-50 via-purple-50 to-indigo-50 border border-indigo-200/80 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-2xs">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
-                    4
-                  </div>
-                  <div className="text-left">
-                    <div className="font-black text-indigo-950 text-xs flex items-center gap-1.5">
-                      <span>4-टैब मुख्य यूजर बिलिंग पोर्टल (हब)</span>
-                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.2 rounded">लाइव</span>
-                    </div>
-                    <div className="text-[11px] text-indigo-700">
-                      डेमो सेलर: <span className="font-mono font-bold bg-white px-1.5 py-0.5 rounded border border-indigo-200 text-indigo-900">seller1</span> | पासवर्ड: <span className="font-mono font-bold bg-white px-1.5 py-0.5 rounded border border-indigo-200 text-indigo-900">Seller@123456</span>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleDirectSellerLogin}
-                  className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
-                >
-                  <span>🚀 सीधे 4-टैब हब खोलें</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
 
               <div className="pt-2 text-center text-xs text-slate-500">
                 <span>

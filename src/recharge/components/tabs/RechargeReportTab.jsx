@@ -208,7 +208,7 @@ export default function RechargeReportTab() {
             <option value="today">आज (Today)</option>
             <option value="yesterday">कल (Yesterday)</option>
             <option value="month">इस महीने (This Month)</option>
-            <option value="fy">वित्तीय वर्ष ({currentFY})</option>
+            <option value="fy">वित्तीय वर्ष ({currentFY.hindiLabel || currentFY.label})</option>
           </select>
 
           {/* Export CSV */}
