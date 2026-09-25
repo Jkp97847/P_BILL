@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300">
+  <circle cx="150" cy="150" r="140" fill="none" stroke="#dc2626" stroke-width="5" stroke-opacity="0.25"/>
+  <circle cx="150" cy="150" r="130" fill="none" stroke="#dc2626" stroke-width="2" stroke-dasharray="5,4" stroke-opacity="0.3"/>
+  <path d="M120 110 C120 70, 180 70, 180 110 C180 150, 120 150, 120 190" fill="none" stroke="#dc2626" stroke-width="12" stroke-linecap="round" opacity="0.3"/>
+  <text x="150" y="170" font-family="'Segoe UI', Roboto, sans-serif" font-size="44" font-weight="900" fill="#dc2626" fill-opacity="0.4" text-anchor="middle">airtel</text>
+  <text x="150" y="225" font-family="'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="800" fill="#dc2626" fill-opacity="0.4" text-anchor="middle">BHARTI AIRTEL LIMITED</text>
+</svg>

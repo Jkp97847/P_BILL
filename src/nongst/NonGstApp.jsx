@@ -1,0 +1,94 @@
+import React, { useEffect } from 'react';
+import { NonGstToastProvider } from './context/NonGstToastContext';
+import { NonGstBillingProvider, useBilling } from './context/NonGstBillingContext';
+import { useAuth } from '../context/AuthContext';
+import NonGstNavbar from './components/NonGstNavbar';
+import NonGstBillGenerateTab from './components/tabs/NonGstBillGenerateTab';
+import NonGstReportTab from './components/tabs/NonGstReportTab';
+import NonGstFormatEditTab from './components/tabs/NonGstFormatEditTab';
+import NonGstPrintableBill from './components/NonGstPrintableBill';
+import PrintableReport from '../components/printable/PrintableReport';
+
+function NonGstMain() {
+  const { currentUser } = useAuth();
+  const { activeTab, activePrintBill, printDocument, settings, updateSettings } = useBilling();
+
+  // If user has specific shop profile, sync when logging in
+  useEffect(() => {
+    if (currentUser?.profile?.shopName && settings && updateSettings) {
+      if (settings.firmName === 'श्री गणेश ट्रेडर्स' && currentUser.profile.shopName !== 'श्री गणेश ट्रेडर्स') {
+        updateSettings({
+          ...settings,
+          firmName: currentUser.profile.shopName,
+          ownerName: currentUser.profile.ownerName || currentUser.profile.name || settings.ownerName,
+          mobile: currentUser.profile.mobile || settings.mobile,
+          address: currentUser.profile.address || settings.address
+        });
+      }
+    }
+  }, [currentUser]);
+
+  return (
+    <>
+      {/* 1. SCREEN WRAPPER: Visible in browser, hidden when printing */}
+      <div id="screen-wrapper" className="min-h-screen flex flex-col bg-slate-100 text-slate-900 font-sans">
+        <NonGstNavbar />
+
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {activeTab === 'generate' && <NonGstBillGenerateTab />}
+          {activeTab === 'report' && <NonGstReportTab />}
+          {activeTab === 'format' && <NonGstFormatEditTab />}
+        </main>
+
+        <footer className="bg-white border-t border-slate-200 py-3.5 px-4 text-center text-xs text-slate-500 app-footer no-print">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
+            <p className="font-medium text-slate-600">
+              स्मार्ट नॉन-जीएसटी रिटेल व जनरल बिलिंग • डेटा आपके कंप्यूटर ब्राउज़र में 100% सुरक्षित रहता है
+            </p>
+            <span className="text-[11px] text-slate-400">मॉड्यूल 2: Non GST All Only Billing</span>
+          </div>
+        </footer>
+      </div>
+
+      {/* 2. DEDICATED PRINT CONTAINER: Hidden on screen, visible only when printing */}
+      <div id="print-container">
+        {printDocument?.type === 'bill' && (
+          <NonGstPrintableBill bill={printDocument.bill || activePrintBill} settings={settings} />
+        )}
+        {printDocument?.type === 'report' && (
+          <PrintableReport
+            reportType="nongst_sales"
+            items={printDocument.items}
+            filterDate={printDocument.filterDate}
+            searchTerm={printDocument.searchTerm}
+            stats={printDocument.stats}
+            isYearly={printDocument.isYearly}
+            settings={{
+              shopName: settings.firmName,
+              tagline: settings.tagline,
+              address: settings.address,
+              city: settings.city,
+              state: settings.state,
+              phone: settings.mobile,
+              email: settings.email,
+              gstin: settings.gstin
+            }}
+          />
+        )}
+        {!printDocument && activePrintBill && (
+          <NonGstPrintableBill bill={activePrintBill} settings={settings} />
+        )}
+      </div>
+    </>
+  );
+}
+
+export default function NonGstApp() {
+  return (
+    <NonGstToastProvider>
+      <NonGstBillingProvider>
+        <NonGstMain />
+      </NonGstBillingProvider>
+    </NonGstToastProvider>
+  );
+}

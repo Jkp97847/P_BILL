@@ -1,0 +1,187 @@
+import React from 'react';
+import GaneshLogo from '../../GaneshLogo';
+import DigitalSignatureBadge from '../../DigitalSignatureBadge';
+import { numberToHindiWords, numberToIndianWords } from '../../../utils/numberToWords';
+
+export default function EmeraldGstTheme({ bill, settings }) {
+  if (!bill) return null;
+
+  const currentSettings = settings || {};
+  const disp = currentSettings.displayOptions || {};
+  const items = bill.items || [];
+  const grandTotal = Math.round(Number(bill.grandTotal || 0));
+
+  const FIXED_ROWS = 10;
+  const rows = Array.from({ length: FIXED_ROWS }, (_, idx) => items[idx] || null);
+  const shouldShowGanesh = disp.showGaneshLogo && currentSettings.showGaneshLogo;
+
+  return (
+    <div id="printable-bill" className="bg-white text-slate-900 border-2 border-emerald-700 rounded-xl p-4 sm:p-5 max-w-4xl mx-auto shadow-md text-xs leading-relaxed font-sans">
+      {/* 1. TOP HEADER */}
+      <div className="grid grid-cols-12 items-center border-b-2 border-emerald-700 pb-2 mb-2 min-h-[56px] gap-2">
+        <div className="col-span-3 flex items-center justify-start">
+          {disp.showLogo && currentSettings.logo ? (
+            <img
+              src={currentSettings.logo}
+              alt="Logo"
+              className="w-16 h-16 object-contain rounded-lg border border-emerald-300 p-0.5 bg-white shadow-2xs"
+            />
+          ) : (
+            <div className="w-16 h-16 hidden sm:block"></div>
+          )}
+        </div>
+
+        <div className="col-span-6 text-center flex flex-col items-center justify-center">
+          {shouldShowGanesh && (
+            <GaneshLogo
+              showLogo={true}
+              text={currentSettings.ganeshText || '॥ श्री गणेशाय नमः ॥'}
+              size="md"
+            />
+          )}
+        </div>
+
+        <div className="col-span-3 text-right flex flex-col items-end justify-center text-xs font-semibold text-slate-800 space-y-0.5">
+          {disp.showMobile && currentSettings.mobile && (
+            <div className="flex items-center gap-1 font-bold text-slate-900">
+              <span>📞 मो.:</span>
+              <span className="font-mono text-xs">{currentSettings.mobile}</span>
+            </div>
+          )}
+          {disp.showAlternateMobile && currentSettings.alternateMobile && (
+            <div className="text-[11px] font-mono text-slate-700">📞 {currentSettings.alternateMobile}</div>
+          )}
+          {disp.showEmail && currentSettings.email && (
+            <div className="text-[11px] text-slate-600 font-medium">✉️ {currentSettings.email}</div>
+          )}
+        </div>
+      </div>
+
+      {/* 2. TITLE */}
+      <div className="text-center my-1.5">
+        <span className="inline-block bg-emerald-800 text-white font-extrabold px-6 py-1 rounded-full text-xs uppercase tracking-widest shadow-xs">
+          🌿 EMERALD GST INVOICE 🌿
+        </span>
+      </div>
+
+      {/* 3. FIRM */}
+      <div className="text-center border-b-2 border-emerald-200 pb-2 mb-3 bg-emerald-50/50 rounded-lg p-2">
+        {disp.showFirmName && (
+          <h1 className="text-2xl sm:text-4xl font-black uppercase tracking-tight text-emerald-950 leading-tight">
+            {currentSettings.firmName || 'फर्म का नाम'}
+          </h1>
+        )}
+        {disp.showTagline && currentSettings.tagline && (
+          <p className="text-xs sm:text-sm font-semibold text-emerald-700 mt-0.5">{currentSettings.tagline}</p>
+        )}
+        {disp.showAddress && currentSettings.address && (
+          <p className="text-xs text-slate-700 mt-1 max-w-xl mx-auto">📍 {currentSettings.address}</p>
+        )}
+        {disp.showGstin && currentSettings.gstin && (
+          <div className="mt-1">
+            <span className="inline-block text-[10px] font-mono font-bold bg-white text-emerald-900 px-2.5 py-0.5 rounded border border-emerald-300 shadow-2xs">
+              GSTIN: {currentSettings.gstin}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* 4. CUSTOMER */}
+      <div className="border border-emerald-300 rounded-lg bg-emerald-50/20 p-2.5 mb-3 grid grid-cols-12 gap-2 text-xs">
+        <div className="col-span-8 sm:col-span-9 space-y-1 pr-2">
+          <div><strong className="text-emerald-900">ग्राहक का नाम:</strong> <span className="font-extrabold text-slate-900 text-sm ml-1">{bill.customerName || 'नकद ग्राहक'}</span></div>
+          <div><strong className="text-slate-700">मोबाइल:</strong> <span className="font-mono font-semibold ml-1">{bill.customerMobile || '-'}</span></div>
+        </div>
+        <div className="col-span-4 sm:col-span-3 space-y-1 pl-2 border-l border-emerald-300 text-right">
+          <div><strong className="text-slate-600">बिल नं.:</strong> <span className="font-mono font-bold text-xs bg-white px-1.5 py-0.5 border border-emerald-300 rounded ml-1">{bill.billNo || 'INV-001'}</span></div>
+          <div><strong className="text-slate-600">दिनांक:</strong> <span className="font-mono font-semibold text-[11px] ml-1">{bill.date || new Date().toLocaleDateString('en-GB')}</span></div>
+        </div>
+      </div>
+
+      {/* 5. TABLE */}
+      <div className="mb-3 overflow-x-auto">
+        <table className="w-full border-collapse border-2 border-emerald-800 text-xs">
+          <thead>
+            <tr className="bg-emerald-900 text-white font-semibold text-center">
+              <th className="border border-emerald-700 px-2 py-1.5 w-12">क्र.सं.</th>
+              <th className="border border-emerald-700 px-3 py-1.5 text-left">सामान / विवरण (Description)</th>
+              <th className="border border-emerald-700 px-2 py-1.5 w-16 text-center">मात्रा</th>
+              <th className="border border-emerald-700 px-2 py-1.5 w-24 text-right">दर / रेट (₹)</th>
+              <th className="border border-emerald-700 px-3 py-1.5 w-28 text-right">कुल कीमत (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((item, idx) => {
+              const sNo = idx + 1;
+              if (item) {
+                return (
+                  <tr key={item.id || idx} className="h-7 hover:bg-emerald-50/40">
+                    <td className="border border-emerald-300 px-2 py-0.5 text-center font-bold text-emerald-950">{sNo}</td>
+                    <td className="border border-emerald-300 px-3 py-0.5 font-medium">{item.name || '—'}</td>
+                    <td className="border border-emerald-300 px-2 py-0.5 text-center font-semibold">{item.qty}</td>
+                    <td className="border border-emerald-300 px-2 py-0.5 text-right font-mono">₹{Number(item.price || 0).toFixed(2)}</td>
+                    <td className="border border-emerald-300 px-3 py-0.5 text-right font-mono font-bold text-emerald-900">₹{Number(item.total || 0).toFixed(2)}</td>
+                  </tr>
+                );
+              }
+              return (
+                <tr key={`empty-${idx}`} className="h-7">
+                  <td className="border border-emerald-200 px-2 py-0.5 text-center text-slate-400">{sNo}</td>
+                  <td className="border border-emerald-200 px-3 py-0.5">&nbsp;</td>
+                  <td className="border border-emerald-200 px-2 py-0.5 text-center">&nbsp;</td>
+                  <td className="border border-emerald-200 px-2 py-0.5 text-right">&nbsp;</td>
+                  <td className="border border-emerald-200 px-3 py-0.5 text-right">&nbsp;</td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="bg-emerald-50 font-bold border-t-2 border-emerald-800">
+              <td colSpan="4" className="border border-emerald-300 px-3 py-1.5 text-right text-emerald-950">
+                फाइनल कुल राशि (Grand Total):
+              </td>
+              <td className="border border-emerald-300 px-3 py-1.5 text-right text-sm md:text-base font-mono text-emerald-900 bg-emerald-100 font-black">
+                ₹{grandTotal.toFixed(2)}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* 6. WORDS */}
+      {disp.showWords && (
+        <div className="bg-emerald-50/60 border border-emerald-300 rounded p-2 mb-3 text-xs flex items-center justify-between">
+          <div><strong className="text-emerald-950">शब्दों में: </strong><span>{numberToHindiWords(grandTotal)}</span></div>
+          <div className="text-slate-600 text-[11px] italic">({numberToIndianWords(grandTotal)})</div>
+        </div>
+      )}
+
+      {/* 7. TERMS & SIGNATURE */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 pt-1.5 border-t-2 border-emerald-800 items-end">
+        <div className={`${disp.showSignatory ? 'md:col-span-7' : 'md:col-span-12'} bg-slate-50 border border-slate-300 rounded p-2 text-[11px]`}>
+          {disp.showTerms && currentSettings.terms && (
+            <div>
+              <p className="font-bold text-emerald-950 mb-1">📌 नियम व शर्तें:</p>
+              <ul className="space-y-0.5 pl-0 list-none">
+                {currentSettings.terms.map((t, i) => (
+                  <li key={i} className="text-slate-700">{i + 1}. {t}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {disp.showSignatory && (
+          <div className="md:col-span-5 flex flex-col items-end justify-end text-right p-0.5">
+            <DigitalSignatureBadge
+              ownerName={currentSettings.ownerName}
+              firmName={currentSettings.firmName}
+              signatoryText={currentSettings.signatoryText}
+              date={bill.date}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
