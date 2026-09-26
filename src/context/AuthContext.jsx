@@ -393,19 +393,47 @@ const getInitialSessionUser = () => {
     }
   };
 
+  // Helper to check if a username already exists in any user account (case-insensitive)
+  const isUsernameTaken = (username, excludeUserId = null) => {
+    const clean = String(username || '').trim().toLowerCase();
+    if (!clean) return false;
+    return users.some(u => {
+      if (excludeUserId && u.id === excludeUserId) return false;
+      return String(u.username || '').trim().toLowerCase() === clean;
+    });
+  };
+
+  // Helper to check if a 10-digit mobile number already exists in any user account
+  const isMobileTaken = (mobile, excludeUserId = null) => {
+    const clean = String(mobile || '').replace(/\D/g, '').slice(-10);
+    if (!clean || clean.length < 10) return false;
+    return users.some(u => {
+      if (excludeUserId && u.id === excludeUserId) return false;
+      const uMob = String(u.profile?.mobile || u.mobile || '').replace(/\D/g, '').slice(-10);
+      const uAlt = String(u.profile?.alternateMobile || u.alternateMobile || '').replace(/\D/g, '').slice(-10);
+      return (uMob && uMob === clean) || (uAlt && uAlt === clean);
+    });
+  };
+
   // Register New Seller
   const registerSeller = (sellerData) => {
-    const cleanUser = String(sellerData.username || '').trim().toLowerCase();
-    const cleanMobile = String(sellerData.mobile || '').replace(/\D/g, '');
+    const cleanUser = String(sellerData.username || '').trim();
+    const cleanMobile = String(sellerData.mobile || '').replace(/\D/g, '').slice(-10);
 
-    // 1. Check unique username
-    if (users.some(u => u.username.toLowerCase() === cleanUser)) {
-      return { success: false, error: `यूजरनेम "${sellerData.username}" पहले से लिया हुआ है! कृपया कोई अन्य यूजरनेम चुनें।` };
+    // 1. Check unique username (Already exists check)
+    if (isUsernameTaken(cleanUser)) {
+      return { 
+        success: false, 
+        error: `यूजरनेम "${cleanUser}" पहले से किसी अन्य यूजर द्वारा पंजीकृत है! कृपया कोई दूसरा यूनिक यूजरनेम चुनें।` 
+      };
     }
 
-    // 2. Check unique primary mobile
-    if (users.some(u => u.profile?.mobile === cleanMobile)) {
-      return { success: false, error: `मोबाइल नंबर "${cleanMobile}" से पहले ही एक फर्म पंजीकृत है!` };
+    // 2. Check unique primary mobile (Already exists check)
+    if (isMobileTaken(cleanMobile)) {
+      return { 
+        success: false, 
+        error: `मोबाइल नंबर "+91-${cleanMobile}" पहले से पंजीकृत है! कृपया किसी अन्य मोबाइल नंबर का उपयोग करें या सीधे लॉगिन करें।` 
+      };
     }
 
     // Determine initial status based on platform policy
@@ -859,7 +887,9 @@ const getInitialSessionUser = () => {
         checkUserHasGstin,
         saveUserGstin,
         startImpersonation,
-        stopImpersonation
+        stopImpersonation,
+        isUsernameTaken,
+        isMobileTaken
       }}
     >
       {children}

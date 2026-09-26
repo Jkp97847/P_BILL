@@ -52,7 +52,9 @@ export default function AuthPage() {
     sendWhatsAppOtp, 
     verifyOtp,
     requestForgotPasswordOtp,
-    resetPasswordWithOtp
+    resetPasswordWithOtp,
+    isUsernameTaken,
+    isMobileTaken
   } = useAuth();
   const { currentRoute, navigate } = useNavigationHistory();
 
@@ -101,6 +103,31 @@ export default function AuthPage() {
     password: '',
     confirmPassword: ''
   });
+
+  // Real-time checks for new user sign up to prevent duplicate username or mobile
+  const cleanRegUsername = (regData.username || '').trim();
+  const isRegUsernameTaken = Boolean(
+    cleanRegUsername.length >= 3 && (
+      isUsernameTaken 
+        ? isUsernameTaken(cleanRegUsername) 
+        : users?.some(u => String(u.username || '').trim().toLowerCase() === cleanRegUsername.toLowerCase())
+    )
+  );
+  const isRegUsernameAvailable = Boolean(cleanRegUsername.length >= 3 && !isRegUsernameTaken);
+
+  const cleanRegMobile = String(regData.mobile || '').replace(/\D/g, '').slice(-10);
+  const isRegMobileTaken = Boolean(
+    cleanRegMobile.length === 10 && (
+      isMobileTaken
+        ? isMobileTaken(cleanRegMobile)
+        : users?.some(u => {
+            const uMob = String(u.profile?.mobile || u.mobile || '').replace(/\D/g, '').slice(-10);
+            const uAlt = String(u.profile?.alternateMobile || u.alternateMobile || '').replace(/\D/g, '').slice(-10);
+            return (uMob && uMob === cleanRegMobile) || (uAlt && uAlt === cleanRegMobile);
+          })
+    )
+  );
+  const isRegMobileAvailable = Boolean(cleanRegMobile.length === 10 && !isRegMobileTaken);
 
   // 3. Captcha State for Seller
   const [captcha, setCaptcha] = useState({ num1: 12, num2: 8, answer: 20 });
@@ -300,7 +327,7 @@ export default function AuthPage() {
     e.preventDefault();
     setErrorMsg('');
 
-    // 1. Username (Compulsory & Unique)
+    // 1. Username (Compulsory & Unique - Already exists check)
     const cleanUser = regData.username.trim();
     if (!cleanUser) {
       setWarningModal({
@@ -323,15 +350,15 @@ export default function AuthPage() {
       return;
     }
     // Check if username already exists
-    const isUserTaken = users && users.some(u => u.username.toLowerCase() === cleanUser.toLowerCase());
+    const isUserTaken = isUsernameTaken ? isUsernameTaken(cleanUser) : (users && users.some(u => String(u.username || '').toLowerCase() === cleanUser.toLowerCase()));
     if (isUserTaken) {
       setWarningModal({
         isOpen: true,
-        title: '⚠️ यूजरनेम उपलब्ध नहीं है',
-        message: `यूजरनेम "${cleanUser}" पहले से किसी अन्य खाते द्वारा उपयोग में है! कृपया कोई अन्य यूनिक यूजरनेम चुनें।`,
+        title: '⚠️ यूजरनेम पहले से मौजूद है (Already Exists)',
+        message: `यूजरनेम "${cleanUser}" पहले से किसी अन्य खाते द्वारा उपयोग में है! सिस्टम में एक ही नाम के दो यूजरनेम की अनुमति नहीं है। कृपया कोई नया यूनिक यूजरनेम लिखें।`,
         type: 'warning'
       });
-      setErrorMsg(`यूजरनेम "${cleanUser}" पहले से पंजीकृत है!`);
+      setErrorMsg(`⚠️ यूजरनेम "${cleanUser}" पहले से मौजूद है (Already Exists)!`);
       return;
     }
 
@@ -349,15 +376,19 @@ export default function AuthPage() {
     }
     const cleanMobile = mobRes.mobile;
     // Check if mobile already exists
-    const isMobileTaken = users && users.some(u => u.profile?.mobile === cleanMobile);
-    if (isMobileTaken) {
+    const isMobTaken = isMobileTaken ? isMobileTaken(cleanMobile) : (users && users.some(u => {
+      const uMob = String(u.profile?.mobile || u.mobile || '').replace(/\D/g, '').slice(-10);
+      const uAlt = String(u.profile?.alternateMobile || u.alternateMobile || '').replace(/\D/g, '').slice(-10);
+      return (uMob && uMob === cleanMobile) || (uAlt && uAlt === cleanMobile);
+    }));
+    if (isMobTaken) {
       setWarningModal({
         isOpen: true,
-        title: '⚠️ मोबाइल नंबर पहले से पंजीकृत है',
-        message: `मोबाइल नंबर "+91-${cleanMobile}" पहले से पंजीकृत है! कृपया इस नंबर से सीधे लॉगिन करें अथवा दूसरा नंबर दर्ज करें।`,
+        title: '⚠️ मोबाइल नंबर पहले से पंजीकृत है (Already Exists)',
+        message: `मोबाइल नंबर "+91-${cleanMobile}" पहले से किसी अन्य खाते से जुड़ा हुआ है! कृपया सीधे लॉगिन करें अथवा दूसरा नया नंबर दर्ज करें।`,
         type: 'warning'
       });
-      setErrorMsg(`मोबाइल नंबर "${cleanMobile}" पहले से पंजीकृत है!`);
+      setErrorMsg(`⚠️ मोबाइल नंबर "${cleanMobile}" पहले से पंजीकृत है (Already Exists)!`);
       return;
     }
 
@@ -456,9 +487,20 @@ export default function AuthPage() {
       return;
     }
 
+    // Final check for already existing username or mobile before storing
+    const cleanUser = regData.username.trim();
+    if (isUsernameTaken && isUsernameTaken(cleanUser)) {
+      setOtpError(`⚠️ यूजरनेम "${cleanUser}" पहले से किसी अन्य खाते द्वारा उपयोग में है!`);
+      return;
+    }
+    if (isMobileTaken && isMobileTaken(cleanMobile)) {
+      setOtpError(`⚠️ मोबाइल नंबर "+91-${cleanMobile}" पहले से पंजीकृत है!`);
+      return;
+    }
+
     // Register user in storage with only account credentials (firm details to be configured on first tab open)
     const regRes = registerSeller({
-      username: regData.username.trim(),
+      username: cleanUser,
       mobile: cleanMobile,
       password: regData.password,
       confirmPassword: regData.confirmPassword
@@ -853,9 +895,21 @@ export default function AuthPage() {
             <form onSubmit={handleStartRegistration} className="space-y-4">
               {/* 1. Username Field */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  1. यूनिक यूजरनेम (Username) *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700">
+                    1. यूनिक यूजरनेम (Username) *
+                  </label>
+                  {isRegUsernameTaken && (
+                    <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                      ✗ उपलब्ध नहीं है (Already Exists)
+                    </span>
+                  )}
+                  {isRegUsernameAvailable && (
+                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      ✓ उपलब्ध है (Available)
+                    </span>
+                  )}
+                </div>
                 <div className="relative">
                   <input
                     type="text"
@@ -866,19 +920,32 @@ export default function AuthPage() {
                     value={regData.username}
                     onChange={(e) => setRegData({ ...regData, username: e.target.value.replace(/\s+/g, '') })}
                     placeholder="उदा. rahul99 अथवा shyam_store"
-                    className={`w-full pl-9 pr-3 py-2 text-xs font-semibold border rounded-xl outline-none transition-all ${
-                      regData.username && users && users.some(u => u.username.toLowerCase() === regData.username.trim().toLowerCase())
-                        ? 'border-rose-400 bg-rose-50/50 text-rose-900 focus:ring-2 focus:ring-rose-500'
-                        : 'border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500'
+                    className={`w-full pl-9 pr-9 py-2 text-xs font-semibold border rounded-xl outline-none transition-all ${
+                      isRegUsernameTaken
+                        ? 'border-rose-500 bg-rose-50/60 text-rose-950 focus:ring-2 focus:ring-rose-500'
+                        : isRegUsernameAvailable
+                          ? 'border-emerald-500 bg-emerald-50/30 text-emerald-950 focus:ring-2 focus:ring-emerald-500'
+                          : 'border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500'
                     }`}
                     required
                   />
                   <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  {isRegUsernameTaken && (
+                    <AlertCircle className="w-4 h-4 text-rose-600 absolute right-3 top-2.5" />
+                  )}
+                  {isRegUsernameAvailable && (
+                    <Check className="w-4 h-4 text-emerald-600 absolute right-3 top-2.5" />
+                  )}
                 </div>
-                {regData.username && users && users.some(u => u.username.toLowerCase() === regData.username.trim().toLowerCase()) ? (
-                  <p className="text-[11px] text-rose-600 font-bold mt-1 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    <span>⚠️ यह यूजरनेम पहले से लिया हुआ है! कृपया दूसरा नाम चुनें।</span>
+                {isRegUsernameTaken ? (
+                  <p className="text-[11px] text-rose-700 font-bold mt-1.5 flex items-center gap-1.5 bg-rose-50 border border-rose-200 p-2 rounded-lg">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+                    <span>⚠️ यूजरनेम "{cleanRegUsername}" पहले से पंजीकृत है (Already Exists)! कृपया कोई अन्य यूनिक यूजरनेम लिखें।</span>
+                  </p>
+                ) : isRegUsernameAvailable ? (
+                  <p className="text-[11px] text-emerald-700 font-bold mt-1 flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>✓ यूजरनेम "{cleanRegUsername}" उपलब्ध है।</span>
                   </p>
                 ) : (
                   <p className="text-[10px] text-slate-400 mt-1">
@@ -889,9 +956,21 @@ export default function AuthPage() {
 
               {/* 2. Mobile Number Field (WhatsApp Verified) */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  2. मोबाइल नंबर (WhatsApp OTP सत्यापन हेतु) *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700">
+                    2. मोबाइल नंबर (WhatsApp OTP सत्यापन हेतु) *
+                  </label>
+                  {isRegMobileTaken && (
+                    <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                      ✗ पहले से पंजीकृत (Already Registered)
+                    </span>
+                  )}
+                  {isRegMobileAvailable && (
+                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      ✓ मान्य एवं उपलब्ध (Available)
+                    </span>
+                  )}
+                </div>
                 <div className="relative flex">
                   <span className="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-slate-300 bg-slate-100 text-slate-600 font-bold text-xs">
                     +91
@@ -907,22 +986,35 @@ export default function AuthPage() {
                     }}
                     onChange={(e) => setRegData({ ...regData, mobile: formatMobileInput(e.target.value) })}
                     placeholder="9829012345"
-                    className={`w-full px-3 py-2 text-xs font-mono font-bold border rounded-r-xl outline-none transition-all ${
-                      regData.mobile.length === 10 && users && users.some(u => u.profile?.mobile === regData.mobile)
-                        ? 'border-rose-400 bg-rose-50/50 text-rose-900 focus:ring-2 focus:ring-rose-500'
-                        : 'border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500'
+                    className={`w-full pl-3 pr-9 py-2 text-xs font-mono font-bold border rounded-r-xl outline-none transition-all ${
+                      isRegMobileTaken
+                        ? 'border-rose-500 bg-rose-50/60 text-rose-950 focus:ring-2 focus:ring-rose-500'
+                        : isRegMobileAvailable
+                          ? 'border-emerald-500 bg-emerald-50/30 text-emerald-950 focus:ring-2 focus:ring-emerald-500'
+                          : 'border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500'
                     }`}
                     required
                   />
+                  {isRegMobileTaken && (
+                    <AlertCircle className="w-4 h-4 text-rose-600 absolute right-3 top-2.5" />
+                  )}
+                  {isRegMobileAvailable && (
+                    <Check className="w-4 h-4 text-emerald-600 absolute right-3 top-2.5" />
+                  )}
                 </div>
-                {regData.mobile.length === 10 && users && users.some(u => u.profile?.mobile === regData.mobile) ? (
-                  <p className="text-[11px] text-rose-600 font-bold mt-1 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    <span>⚠️ इस नंबर से खाता पहले से मौजूद है! सीधे लॉगिन करें।</span>
+                {isRegMobileTaken ? (
+                  <p className="text-[11px] text-rose-700 font-bold mt-1.5 flex items-center gap-1.5 bg-rose-50 border border-rose-200 p-2 rounded-lg">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+                    <span>⚠️ मोबाइल नंबर "+91-${cleanRegMobile}" पहले से पंजीकृत है (Already Exists)! कृपया सीधे लॉगिन करें अथवा दूसरा नंबर दर्ज करें।</span>
+                  </p>
+                ) : isRegMobileAvailable ? (
+                  <p className="text-[11px] text-emerald-700 font-bold mt-1 flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>✓ मोबाइल नंबर उपलब्ध है। इस पर 4-अंकों का WhatsApp OTP भेजा जाएगा।</span>
                   </p>
                 ) : (
                   <p className="text-[10px] text-slate-400 mt-1">
-                    इस नंबर पर 4-अंकों का WhatsApp OTP भेजा जाएगा।
+                    इस 10-अंकों के मोबाइल नंबर पर WhatsApp OTP सत्यापन कोड भेजा जाएगा।
                   </p>
                 )}
               </div>
@@ -1046,10 +1138,23 @@ export default function AuthPage() {
               {/* Submit & Proceed Button */}
               <button
                 type="submit"
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                disabled={isRegUsernameTaken || isRegMobileTaken}
+                className={`w-full py-3.5 font-bold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${
+                  isRegUsernameTaken || isRegMobileTaken
+                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed border border-slate-300'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-emerald-600/30'
+                }`}
               >
-                <span>WhatsApp OTP प्राप्त करें व खाता बनाएं</span>
-                <Send className="w-4 h-4" />
+                {isRegUsernameTaken ? (
+                  <span>⚠️ यूजरनेम पहले से मौजूद है! कृपया नया यूजरनेम लिखें</span>
+                ) : isRegMobileTaken ? (
+                  <span>⚠️ मोबाइल नंबर पहले से पंजीकृत है! कृपया दूसरा नंबर लिखें</span>
+                ) : (
+                  <>
+                    <span>WhatsApp OTP प्राप्त करें व खाता बनाएं</span>
+                    <Send className="w-4 h-4" />
+                  </>
+                )}
               </button>
             </form>
           </div>
