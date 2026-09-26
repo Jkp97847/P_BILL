@@ -10,9 +10,26 @@ import NonGstPrintableBill from './components/NonGstPrintableBill';
 import PrintableReport from '../components/printable/PrintableReport';
 import FirstTimeNonGstSetupModal from './components/FirstTimeNonGstSetupModal';
 
+import { useNavigationHistory } from '../context/NavigationHistoryContext';
+
 function NonGstMain() {
   const { setSelectedModule } = useAuth();
-  const { activeTab, activePrintBill, printDocument, settings, updateSettings } = useBilling();
+  const { activeTab, setActiveTab, activePrintBill, printDocument, settings, updateSettings } = useBilling();
+  const { currentRoute, navigate } = useNavigationHistory();
+
+  // Sync route tab -> activeTab when browser Back/Forward is clicked
+  React.useEffect(() => {
+    if (currentRoute.module === 'nongst_billing' && currentRoute.tab && currentRoute.tab !== activeTab) {
+      setActiveTab(currentRoute.tab);
+    }
+  }, [currentRoute.module, currentRoute.tab, activeTab, setActiveTab]);
+
+  // Sync activeTab -> route when tab is clicked
+  React.useEffect(() => {
+    if (activeTab && currentRoute.module === 'nongst_billing' && currentRoute.tab !== activeTab) {
+      navigate({ module: 'nongst_billing', tab: activeTab });
+    }
+  }, [activeTab, currentRoute.module, currentRoute.tab, navigate]);
 
   const isConfigured = Boolean(settings?.isConfigured);
 

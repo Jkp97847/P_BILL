@@ -6,10 +6,26 @@ import RechargeReportTab from './components/tabs/RechargeReportTab';
 import RechargeSettingsTab from './components/tabs/RechargeSettingsTab';
 import RechargeReceiptSlip from './components/RechargeReceiptSlip';
 import FirstTimeRechargeSetupModal from './components/FirstTimeRechargeSetupModal';
+import { useNavigationHistory } from '../context/NavigationHistoryContext';
 
 function RechargeAppContent({ onBackToHub }) {
-  const [activeTab, setActiveTab] = useState('generate');
+  const { currentRoute, navigate } = useNavigationHistory();
+  const [activeTab, setActiveTab] = useState(currentRoute.tab || 'generate');
   const { activePrintSlip, settings, updateSettings } = useRecharge();
+
+  // Sync route tab -> activeTab when browser Back/Forward is clicked
+  React.useEffect(() => {
+    if (currentRoute.module === 'receipt_billing' && currentRoute.tab && currentRoute.tab !== activeTab) {
+      setActiveTab(currentRoute.tab);
+    }
+  }, [currentRoute.module, currentRoute.tab, activeTab]);
+
+  // Sync activeTab -> route when tab is clicked
+  React.useEffect(() => {
+    if (activeTab && currentRoute.module === 'receipt_billing' && currentRoute.tab !== activeTab) {
+      navigate({ module: 'receipt_billing', tab: activeTab });
+    }
+  }, [activeTab, currentRoute.module, currentRoute.tab, navigate]);
 
   const isConfigured = Boolean(settings?.isConfigured);
 

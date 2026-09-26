@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigationHistory } from '../../context/NavigationHistoryContext';
 import { 
   Lock, 
   User, 
@@ -53,9 +54,24 @@ export default function AuthPage() {
     requestForgotPasswordOtp,
     resetPasswordWithOtp
   } = useAuth();
+  const { currentRoute, navigate } = useNavigationHistory();
 
   // Tab State: 'login' | 'register' | 'forgot'
-  const [activeTab, setActiveTab] = useState('login');
+  const [activeTab, setActiveTab] = useState(() => currentRoute.authTab || 'login');
+
+  // Sync route.authTab -> activeTab when browser Back/Forward is clicked
+  useEffect(() => {
+    if (currentRoute.module === 'auth' && currentRoute.authTab && currentRoute.authTab !== activeTab) {
+      setActiveTab(currentRoute.authTab);
+    }
+  }, [currentRoute.module, currentRoute.authTab, activeTab]);
+
+  // Sync activeTab -> route when tab changes
+  useEffect(() => {
+    if (activeTab && (currentRoute.module !== 'auth' || currentRoute.authTab !== activeTab)) {
+      navigate({ module: 'auth', authTab: activeTab });
+    }
+  }, [activeTab, currentRoute.module, currentRoute.authTab, navigate]);
 
   // Warning Message Box Modal State
   const [warningModal, setWarningModal] = useState({ isOpen: false, title: '', message: '', type: 'warning' });

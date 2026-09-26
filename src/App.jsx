@@ -17,12 +17,28 @@ import ChoicePortalHub from './components/portal/ChoicePortalHub';
 import NonGstApp from './nongst/NonGstApp';
 import RechargeApp from './recharge/RechargeApp';
 import FirstTimeGstSetupModal from './components/modals/FirstTimeGstSetupModal';
+import { NavigationHistoryProvider, useNavigationHistory } from './context/NavigationHistoryContext';
 import { ShieldCheck } from 'lucide-react';
 
 function MainApp() {
-  const { activeTab, activePrintBill, printDocument, settings, updateSettings } = useBilling();
+  const { activeTab, setActiveTab, activePrintBill, printDocument, settings, updateSettings } = useBilling();
   const { currentUser, impersonatedSeller, setSelectedModule, saveUserGstin, setActiveAdminView } = useAuth();
+  const { currentRoute, navigate } = useNavigationHistory();
   const activeSeller = impersonatedSeller || currentUser;
+
+  // Sync route tab -> activeTab when browser Back/Forward is clicked
+  React.useEffect(() => {
+    if (currentRoute.module === 'gst_billing' && currentRoute.tab && currentRoute.tab !== activeTab) {
+      setActiveTab(currentRoute.tab);
+    }
+  }, [currentRoute.module, currentRoute.tab, activeTab, setActiveTab]);
+
+  // Sync activeTab -> route when tab is clicked
+  React.useEffect(() => {
+    if (activeTab && currentRoute.module === 'gst_billing' && currentRoute.tab !== activeTab) {
+      navigate({ module: 'gst_billing', tab: activeTab });
+    }
+  }, [activeTab, currentRoute.module, currentRoute.tab, navigate]);
 
   const handleSaveFirstTimeGst = (newSettings) => {
     updateSettings({
@@ -120,6 +136,47 @@ function AppContent() {
     checkUserHasGstin,
     stopImpersonation
   } = useAuth();
+  const { currentRoute, navigate, replace } = useNavigationHistory();
+
+  // 1. Sync from Browser Back/Forward (currentRoute) to AuthContext state
+  React.useEffect(() => {
+    if (!currentUser) return;
+
+    // If Super Admin backed out of an impersonated seller
+    if (currentUser.role === 'superadmin') {
+      if (currentRoute.module === 'superadmin' && impersonatedSeller) {
+        stopImpersonation();
+        return;
+      }
+    }
+
+    if (currentRoute.module && currentRoute.module !== selectedModule && currentRoute.module !== 'auth') {
+      if (currentRoute.module === 'superadmin') {
+        if (currentUser.role === 'superadmin' && impersonatedSeller) {
+          stopImpersonation();
+        }
+      } else {
+        setSelectedModule(currentRoute.module);
+      }
+    }
+  }, [currentRoute.module, currentUser, selectedModule, impersonatedSeller, stopImpersonation, setSelectedModule]);
+
+  // 2. Sync from AuthContext selectedModule to Browser History (currentRoute)
+  React.useEffect(() => {
+    if (currentUser) {
+      if (currentUser.role === 'superadmin' && !impersonatedSeller) {
+        if (currentRoute.module !== 'superadmin') {
+          navigate({ module: 'superadmin' });
+        }
+      } else if (selectedModule && selectedModule !== currentRoute.module) {
+        if (currentRoute.module === 'auth') {
+          replace({ module: selectedModule });
+        } else {
+          navigate({ module: selectedModule });
+        }
+      }
+    }
+  }, [selectedModule, currentUser, impersonatedSeller, currentRoute.module, navigate, replace]);
 
   // 1. Not logged in -> Show Login / Register AuthPage
   if (!currentUser) {
@@ -251,9 +308,11 @@ class ErrorBoundary extends React.Component {
 export default function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
+      <NavigationHistoryProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </NavigationHistoryProvider>
     </ErrorBoundary>
   );
 }
