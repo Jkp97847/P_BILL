@@ -21,6 +21,7 @@ export const parseSerials = (str) => {
 
 // Data Loaders for Per-Seller Isolation
 const loadSellerSettings = (id, sellerObj) => {
+  const isDemo = id === 'seller_demo' || id === 'seller1' || sellerObj?.username === 'seller1';
   try {
     const key = `mobile_billing_settings_${id}`;
     let saved = localStorage.getItem(key);
@@ -32,6 +33,9 @@ const loadSellerSettings = (id, sellerObj) => {
       return {
         ...INITIAL_SETTINGS,
         ...parsed,
+        isConfigured: parsed.isConfigured !== undefined 
+          ? Boolean(parsed.isConfigured) 
+          : (isDemo || Boolean(parsed.firmName && parsed.gstin && parsed.bankName)),
         gstSlabs: parsed.gstSlabs && Array.isArray(parsed.gstSlabs) && parsed.gstSlabs.length > 0 
           ? parsed.gstSlabs 
           : INITIAL_SETTINGS.gstSlabs,
@@ -49,31 +53,34 @@ const loadSellerSettings = (id, sellerObj) => {
     console.error('Error loading seller settings:', err);
   }
 
-  // Pre-fill from seller registration profile
-  if (sellerObj && sellerObj.profile) {
-    const p = sellerObj.profile;
+  // Demo user defaults
+  if (isDemo) {
     return {
       ...INITIAL_SETTINGS,
-      firmName: p.shopName || INITIAL_SETTINGS.firmName,
-      ownerName: p.ownerName || '',
-      mobile: p.mobile || INITIAL_SETTINGS.mobile,
-      alternateMobile: p.alternateMobile || '',
-      email: p.email || INITIAL_SETTINGS.email,
-      address: p.address || INITIAL_SETTINGS.address,
-      state: p.state || 'Rajasthan',
-      stateCode: p.stateCode || '08',
-      pincode: p.pincode || '',
-      gstin: p.gstin || '',
-      pan: p.pan || '',
-      bankName: p.bankName || '',
-      accountNo: p.accountNo || '',
-      ifsc: p.ifsc || '',
-      upiId: p.upiId || '',
-      defaultCustomerAddress: p.address ? `स्थानीय / ${p.address}` : INITIAL_SETTINGS.defaultCustomerAddress
+      isConfigured: true
     };
   }
 
-  return INITIAL_SETTINGS;
+  // Fresh newly registered user: unconfigured until first-time filling
+  return {
+    ...INITIAL_SETTINGS,
+    firmName: '',
+    ownerName: '',
+    mobile: sellerObj?.profile?.mobile || '',
+    alternateMobile: '',
+    email: '',
+    address: '',
+    state: 'Rajasthan',
+    stateCode: '08',
+    pincode: '',
+    gstin: '',
+    pan: '',
+    bankName: '',
+    accountNo: '',
+    ifsc: '',
+    upiId: '',
+    isConfigured: false
+  };
 };
 
 const loadSellerInventory = (id) => {
@@ -903,6 +910,7 @@ export function BillingProvider({ children }) {
       return {
         ...prev,
         ...newSettings,
+        isConfigured: newSettings.isConfigured !== undefined ? Boolean(newSettings.isConfigured) : prev.isConfigured,
         gstin,
         displayOptions: {
           ...prev.displayOptions,

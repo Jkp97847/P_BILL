@@ -31,34 +31,68 @@ export function RechargeProvider({ children }) {
   const storageKeyBills = `recharge_bills_${activeUserId}`;
   const storageKeySettings = `recharge_settings_${activeUserId}`;
 
-  // Default initial settings pre-seeded from logged-in seller profile
+  // Default initial settings per seller
   const getInitialSettings = () => {
+    const isDemo = activeUserId === 'seller_demo' || activeUserId === 'seller1' || effectiveSeller?.username === 'seller1';
     try {
       const saved = localStorage.getItem(storageKeySettings);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...parsed,
+          isConfigured: parsed.isConfigured !== undefined 
+            ? Boolean(parsed.isConfigured) 
+            : (isDemo || Boolean(parsed.shopName && parsed.ownerName))
+        };
+      }
     } catch {
       // ignore
     }
 
+    if (isDemo) {
+      return {
+        shopName: 'स्मार्ट रिचार्ज & ई-मित्र केंद्र',
+        shopPhone: '9784730824',
+        ownerName: 'अधिकृत एजेंट',
+        address: 'मुख्य बाजार, सीकर (राज.)',
+        bankName: 'State Bank of India',
+        accountNumber: '61098663856',
+        ifscCode: 'SBIN0031338',
+        upiId: '9784730824@upi',
+        gstin: '',
+        feeRuleType: 'slab',     // 'slab' | 'flat' | 'percent'
+        feeSlabUnit: 1000,       // ₹1000
+        feePerSlab: 5,           // ₹5 per ₹1000
+        flatFeeAmount: 10,
+        percentFeeRate: 1,
+        paperSize: 'thermal80',  // 'thermal80' | 'thermal58' | 'a4'
+        showBankOnSlip: true,
+        showStampOnSlip: true,
+        footerNote: 'यह एक कंप्यूटरीकृत सत्यापित रसीद है। लेन-देन सफलतापूर्वक संपन्न हुआ।',
+        isConfigured: true
+      };
+    }
+
     return {
-      shopName: effectiveSeller?.profile?.shopName || 'स्मार्ट रिचार्ज & ई-मित्र केंद्र',
-      shopPhone: effectiveSeller?.profile?.mobile || '9784730824',
-      ownerName: effectiveSeller?.profile?.ownerName || effectiveSeller?.profile?.name || effectiveSeller?.username || 'अधिकृत एजेंट',
-      address: effectiveSeller?.profile?.address || 'मुख्य बाजार, सीकर (राज.)',
-      bankName: effectiveSeller?.profile?.bankName || 'State Bank of India',
-      accountNumber: effectiveSeller?.profile?.accountNo || '61098663856',
-      ifscCode: effectiveSeller?.profile?.ifsc || 'SBIN0031338',
-      upiId: effectiveSeller?.profile?.upiId || '',
-      gstin: effectiveSeller?.profile?.gstin || '',
-      feeRuleType: 'slab',     // 'slab' | 'flat' | 'percent'
-      feeSlabUnit: 1000,       // ₹1000
-      feePerSlab: 5,           // ₹5 per ₹1000
+      shopName: '',
+      shopPhone: effectiveSeller?.profile?.mobile || '',
+      ownerName: '',
+      address: '',
+      bankName: '',
+      accountNumber: '',
+      ifscCode: '',
+      upiId: '',
+      gstin: '',
+      feeRuleType: 'slab',
+      feeSlabUnit: 1000,
+      feePerSlab: 5,
       flatFeeAmount: 10,
       percentFeeRate: 1,
-      paperSize: 'thermal80',  // 'thermal80' | 'thermal58' | 'a4'
+      paperSize: 'thermal80',
       showBankOnSlip: true,
       showStampOnSlip: true,
-      footerNote: 'यह एक कंप्यूटरीकृत सत्यापित रसीद है। लेन-देन सफलतापूर्वक संपन्न हुआ।'
+      footerNote: 'यह एक कंप्यूटरीकृत सत्यापित रसीद है। लेन-देन सफलतापूर्वक संपन्न हुआ।',
+      isConfigured: false
     };
   };
 
@@ -132,10 +166,10 @@ export function RechargeProvider({ children }) {
   // Save settings to localStorage
   const updateSettings = (newSettings) => {
     setSettings(prev => {
-      // GSTIN in Tab 3 is always locked to seller's profile GSTIN
       const updated = {
         ...prev,
         ...newSettings,
+        isConfigured: newSettings.isConfigured !== undefined ? Boolean(newSettings.isConfigured) : prev.isConfigured,
         gstin: effectiveSeller?.profile?.gstin || prev.gstin || ''
       };
       try {

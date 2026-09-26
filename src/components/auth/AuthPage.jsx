@@ -45,6 +45,7 @@ import {
 
 export default function AuthPage() {
   const { 
+    users,
     login, 
     registerSeller, 
     sendWhatsAppOtp, 
@@ -77,26 +78,12 @@ export default function AuthPage() {
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
-  // 2. Registration Form State
+  // 2. Registration Form State (Only 4 Fields: Username, Mobile, Password, Confirm Password)
   const [regData, setRegData] = useState({
     username: '',
-    password: '',
-    confirmPassword: '',
-    shopName: '',
-    ownerName: '',
     mobile: '',
-    alternateMobile: '',
-    email: '',
-    address: '',
-    state: 'Rajasthan',
-    stateCode: '08',
-    pincode: '',
-    gstin: '',
-    pan: '',
-    bankName: '',
-    accountNo: '',
-    ifsc: '',
-    upiId: ''
+    password: '',
+    confirmPassword: ''
   });
 
   // 3. Captcha State for Seller
@@ -292,13 +279,14 @@ export default function AuthPage() {
     }, 400);
   };
 
-  // Step 1 of Registration: Validate fields & Open WhatsApp OTP
+  // Step 1 of Registration: Validate fields (Username, Mobile, Password, Confirm Password, Captcha) & Open WhatsApp OTP
   const handleStartRegistration = (e) => {
     e.preventDefault();
     setErrorMsg('');
 
-    // 1. Username (Compulsory)
-    if (!regData.username.trim()) {
+    // 1. Username (Compulsory & Unique)
+    const cleanUser = regData.username.trim();
+    if (!cleanUser) {
       setWarningModal({
         isOpen: true,
         title: '⚠️ यूजरनेम अनिवार्य है',
@@ -308,7 +296,7 @@ export default function AuthPage() {
       setErrorMsg('यूजरनेम दर्ज करना अनिवार्य है!');
       return;
     }
-    if (regData.username.trim().length < 3) {
+    if (cleanUser.length < 3) {
       setWarningModal({
         isOpen: true,
         title: '⚠️ यूजरनेम बहुत छोटा है',
@@ -318,8 +306,46 @@ export default function AuthPage() {
       setErrorMsg('यूजरनेम कम से कम 3 अक्षरों का होना चाहिए!');
       return;
     }
+    // Check if username already exists
+    const isUserTaken = users && users.some(u => u.username.toLowerCase() === cleanUser.toLowerCase());
+    if (isUserTaken) {
+      setWarningModal({
+        isOpen: true,
+        title: '⚠️ यूजरनेम उपलब्ध नहीं है',
+        message: `यूजरनेम "${cleanUser}" पहले से किसी अन्य खाते द्वारा उपयोग में है! कृपया कोई अन्य यूनिक यूजरनेम चुनें।`,
+        type: 'warning'
+      });
+      setErrorMsg(`यूजरनेम "${cleanUser}" पहले से पंजीकृत है!`);
+      return;
+    }
 
-    // 2. Password (Compulsory)
+    // 2. Primary Mobile Number (Compulsory, Unique - WhatsApp Verified)
+    const mobRes = validateMobile(regData.mobile, true, 'मोबाइल नंबर');
+    if (!mobRes.isValid) {
+      setWarningModal({
+        isOpen: true,
+        title: '⚠️ मोबाइल नंबर अमान्य है',
+        message: mobRes.error,
+        type: 'warning'
+      });
+      setErrorMsg(mobRes.error);
+      return;
+    }
+    const cleanMobile = mobRes.mobile;
+    // Check if mobile already exists
+    const isMobileTaken = users && users.some(u => u.profile?.mobile === cleanMobile);
+    if (isMobileTaken) {
+      setWarningModal({
+        isOpen: true,
+        title: '⚠️ मोबाइल नंबर पहले से पंजीकृत है',
+        message: `मोबाइल नंबर "+91-${cleanMobile}" पहले से पंजीकृत है! कृपया इस नंबर से सीधे लॉगिन करें अथवा दूसरा नंबर दर्ज करें।`,
+        type: 'warning'
+      });
+      setErrorMsg(`मोबाइल नंबर "${cleanMobile}" पहले से पंजीकृत है!`);
+      return;
+    }
+
+    // 3. Password (Compulsory, min 6 chars)
     if (!regData.password) {
       setWarningModal({
         isOpen: true,
@@ -330,16 +356,18 @@ export default function AuthPage() {
       setErrorMsg('पासवर्ड दर्ज करना अनिवार्य है!');
       return;
     }
-    if (passwordStrength.score < 3) {
+    if (regData.password.length < 6) {
       setWarningModal({
         isOpen: true,
-        title: '⚠️ कमजोर पासवर्ड',
-        message: 'कृपया मजबूत पासवर्ड बनाएं (कम से कम 8 अक्षर, जिसमें बड़ा अक्षर A-Z, अंक 0-9 व विशेष चिन्ह जैसे @#$ शामिल हों)!',
+        title: '⚠️ पासवर्ड बहुत छोटा है',
+        message: 'पासवर्ड कम से कम 6 अक्षरों का होना अनिवार्य है!',
         type: 'warning'
       });
-      setErrorMsg('कृपया मजबूत पासवर्ड बनाएं (कम से कम 8 अक्षर)!');
+      setErrorMsg('पासवर्ड कम से कम 6 अक्षरों का होना चाहिए!');
       return;
     }
+
+    // 4. Confirm Password
     if (regData.password !== regData.confirmPassword) {
       setWarningModal({
         isOpen: true,
@@ -351,189 +379,7 @@ export default function AuthPage() {
       return;
     }
 
-    // 3. Shop Name (Compulsory)
-    if (!regData.shopName.trim()) {
-      setWarningModal({
-        isOpen: true,
-        title: '⚠️ दुकान / फर्म का नाम अनिवार्य है',
-        message: 'दुकान / फर्म का नाम (Shop Name) दर्ज करना अनिवार्य है (यह बिल पर प्रिंट होगा)!',
-        type: 'warning'
-      });
-      setErrorMsg('दुकान / फर्म का नाम दर्ज करना अनिवार्य है!');
-      return;
-    }
-
-    // 4. Owner Name (Compulsory)
-    if (!regData.ownerName.trim()) {
-      setWarningModal({
-        isOpen: true,
-        title: '⚠️ प्रोपराइटर / मालिक का नाम अनिवार्य है',
-        message: 'मालिक / प्रोपराइटर का नाम दर्ज करना अनिवार्य है!',
-        type: 'warning'
-      });
-      setErrorMsg('मालिक का नाम दर्ज करना अनिवार्य है!');
-      return;
-    }
-
-    // 5. Primary Mobile Number (Compulsory - Verified on WhatsApp)
-    const mobRes = validateMobile(regData.mobile, true, 'प्राथमिक मोबाइल नंबर');
-    if (!mobRes.isValid) {
-      setWarningModal({
-        isOpen: true,
-        title: '⚠️ प्राथमिक मोबाइल नंबर अमान्य है',
-        message: mobRes.error,
-        type: 'warning'
-      });
-      setErrorMsg(mobRes.error);
-      return;
-    }
-    const cleanMobile = mobRes.mobile;
-
-    // 6. Alternate Mobile Number (OPTIONAL)
-    if (regData.alternateMobile && regData.alternateMobile.trim()) {
-      const altRes = validateMobile(regData.alternateMobile, false, 'अतिरिक्त मोबाइल नंबर');
-      if (!altRes.isValid) {
-        setWarningModal({
-          isOpen: true,
-          title: '⚠️ अतिरिक्त मोबाइल नंबर अमान्य',
-          message: altRes.error,
-          type: 'warning'
-        });
-        setErrorMsg(altRes.error);
-        return;
-      }
-    }
-
-    // 7. Email Address (Compulsory)
-    const emailRes = validateEmail(regData.email, true);
-    if (!emailRes.isValid) {
-      setWarningModal({
-        isOpen: true,
-        title: '⚠️ ईमेल पता अमान्य है',
-        message: emailRes.error,
-        type: 'warning'
-      });
-      setErrorMsg(emailRes.error);
-      return;
-    }
-
-    // 8. Address (Compulsory)
-    if (!regData.address.trim()) {
-      setWarningModal({
-        isOpen: true,
-        title: '⚠️ दुकान का पूरा पता अनिवार्य है',
-        message: 'दुकान का पूरा पता दर्ज करना अनिवार्य है (यह इनवॉइस / बिल पर प्रिंट होगा)!',
-        type: 'warning'
-      });
-      setErrorMsg('दुकान का पूरा पता दर्ज करना अनिवार्य है!');
-      return;
-    }
-
-    // 9. State (Compulsory)
-    if (!regData.state.trim()) {
-      setWarningModal({
-        isOpen: true,
-        title: '⚠️ राज्य अनिवार्य है',
-        message: 'कृपया राज्य का नाम दर्ज करें!',
-        type: 'warning'
-      });
-      setErrorMsg('राज्य दर्ज करना अनिवार्य है!');
-      return;
-    }
-
-    // 10. Pincode (Compulsory, exactly 6 digits)
-    const cleanPin = regData.pincode.replace(/\D/g, '');
-    if (!cleanPin || cleanPin.length !== 6) {
-      setWarningModal({
-        isOpen: true,
-        title: '⚠️ पिनकोड अनिवार्य है',
-        message: 'पिनकोड (Pincode) पूरे 6 अंकों का होना अनिवार्य है!',
-        type: 'warning'
-      });
-      setErrorMsg('पिनकोड पूरे 6 अंकों का होना अनिवार्य है!');
-      return;
-    }
-
-    // 11. GSTIN Number (OPTIONAL)
-    if (regData.gstin && regData.gstin.trim()) {
-      const gstRes = validateGstin(regData.gstin, false);
-      if (!gstRes.isValid) {
-        setWarningModal({
-          isOpen: true,
-          title: '⚠️ GSTIN प्रारूप अमान्य',
-          message: gstRes.error,
-          type: 'warning'
-        });
-        setErrorMsg(gstRes.error);
-        return;
-      }
-    }
-
-    // 12. PAN Number (Compulsory, 10 characters)
-    const panRes = validatePan(regData.pan, true);
-    if (!panRes.isValid) {
-      setWarningModal({
-        isOpen: true,
-        title: '⚠️ PAN नंबर अमान्य है',
-        message: panRes.error,
-        type: 'warning'
-      });
-      setErrorMsg(panRes.error);
-      return;
-    }
-
-    // 13. Bank Name (Compulsory)
-    if (!regData.bankName.trim()) {
-      setWarningModal({
-        isOpen: true,
-        title: '⚠️ बैंक का नाम अनिवार्य है',
-        message: 'बैंक का नाम दर्ज करना अनिवार्य है (उदा. SBI / HDFC / PNB)!',
-        type: 'warning'
-      });
-      setErrorMsg('बैंक का नाम दर्ज करना अनिवार्य है!');
-      return;
-    }
-
-    // 14. Bank Account Number (Compulsory, 9 to 18 digits)
-    const accRes = validateAccountNo(regData.accountNo, true);
-    if (!accRes.isValid) {
-      setWarningModal({
-        isOpen: true,
-        title: '⚠️ बैंक खाता संख्या अमान्य है',
-        message: accRes.error,
-        type: 'warning'
-      });
-      setErrorMsg(accRes.error);
-      return;
-    }
-
-    // 15. IFSC Code (Compulsory, 11 alphanumeric characters)
-    const ifscRes = validateIfsc(regData.ifsc, true);
-    if (!ifscRes.isValid) {
-      setWarningModal({
-        isOpen: true,
-        title: '⚠️ IFSC कोड अमान्य है',
-        message: ifscRes.error,
-        type: 'warning'
-      });
-      setErrorMsg(ifscRes.error);
-      return;
-    }
-
-    // 16. UPI ID (Compulsory)
-    const upiRes = validateUpi(regData.upiId, true);
-    if (!upiRes.isValid) {
-      setWarningModal({
-        isOpen: true,
-        title: '⚠️ UPI ID अमान्य है',
-        message: upiRes.error,
-        type: 'warning'
-      });
-      setErrorMsg(upiRes.error);
-      return;
-    }
-
-    // 17. Security Captcha (Compulsory)
+    // 5. Anti-Robot Security Captcha (Compulsory)
     if (parseInt(captchaInput, 10) !== captcha.answer) {
       setWarningModal({
         isOpen: true,
@@ -561,7 +407,7 @@ export default function AuthPage() {
 
     // Construct direct WhatsApp dispatch URL to user's mobile WhatsApp
     const waMsg = encodeURIComponent(
-      `नमस्ते ${regData.ownerName}! Smart Billing सॉफ्टवेयर में आपका स्वागत है। आपकी फर्म "${regData.shopName}" के रजिस्ट्रेशन हेतु 4-अंकों का सत्यापन OTP कोड है: *${otpRes.otp}* (यह कोड 10 मिनट के लिए मान्य है)।`
+      `नमस्ते! Smart Billing सॉफ्टवेयर में आपका स्वागत है। यूजरनेम "${cleanUser}" के रजिस्ट्रेशन सत्यापन हेतु आपका 4-अंकों का OTP कोड है: *${otpRes.otp}* (मान्यता: 5 मिनट)`
     );
     const waUrl = `https://api.whatsapp.com/send?phone=91${cleanMobile}&text=${waMsg}`;
 
@@ -569,7 +415,7 @@ export default function AuthPage() {
     try {
       window.open(waUrl, '_blank');
     } catch {
-      // In case browser blocks popup, user can click "WhatsApp खोलें" button
+      // In case browser blocks popup
     }
 
     setWhatsappDispatchUrl(waUrl);
@@ -594,8 +440,13 @@ export default function AuthPage() {
       return;
     }
 
-    // Register user in storage
-    const regRes = registerSeller(regData);
+    // Register user in storage with only account credentials (firm details to be configured on first tab open)
+    const regRes = registerSeller({
+      username: regData.username.trim(),
+      mobile: cleanMobile,
+      password: regData.password,
+      confirmPassword: regData.confirmPassword
+    });
 
     if (!regRes.success) {
       setOtpModalOpen(false);
@@ -608,11 +459,9 @@ export default function AuthPage() {
     setSignupSuccessModal({
       isOpen: true,
       creds: {
-        username: regData.username,
+        username: regData.username.trim(),
         password: regData.password,
-        shopName: regData.shopName,
-        mobile: cleanMobile,
-        ownerName: regData.ownerName
+        mobile: cleanMobile
       }
     });
   };
@@ -974,46 +823,110 @@ export default function AuthPage() {
         {/* TAB 2: USER REGISTRATION FORM WITH BILLING PROFILE */}
         {/* ---------------------------------------------------------------- */}
         {activeTab === 'register' && (
-          <div className="p-6 sm:p-8 space-y-6 max-h-[75vh] overflow-y-auto">
+          <div className="p-6 sm:p-8 space-y-6">
             <div className="border-b border-slate-100 pb-3">
               <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-indigo-600" />
-                <span>नया यूजर / साइन-अप (New User Registration)</span>
+                <span>नया यूजर साइन-अप (New Registration)</span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                यहाँ भरी गई समस्त जानकारी आपकी बिलिंग प्रोफाइल में स्वतः सेट होगी और बिल प्रिंट पर प्रदर्शित होगी।
+                केवल 4 जानकारी दर्ज करें और तुरंत अपना खाता बनाएं। फर्म व बैंक विवरण पहली बार बिलिंग टैब खोलने पर दर्ज किए जा सकेंगे।
               </p>
             </div>
 
-            <form onSubmit={handleStartRegistration} className="space-y-5">
-              {/* SECTION A: ACCOUNT CREDENTIALS */}
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
-                <span className="text-xs font-bold text-indigo-950 uppercase tracking-wide block">
-                  1. लॉगिन खाता क्रेडेंशियल्स (Login Credentials):
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
-                      यूजरनेम (Username) *
-                    </label>
-                    <input
-                      type="text"
-                      name="username"
-                      id="reg-username"
-                      data-no-uppercase="true"
-                      autoComplete="username"
-                      value={regData.username}
-                      onChange={(e) => setRegData({ ...regData, username: e.target.value })}
-                      placeholder="उदा. mobilehub"
-                      className="w-full px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-                      required
-                    />
-                  </div>
+            <form onSubmit={handleStartRegistration} className="space-y-4">
+              {/* 1. Username Field */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  1. यूनिक यूजरनेम (Username) *
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="username"
+                    id="reg-username"
+                    data-no-uppercase="true"
+                    autoComplete="username"
+                    value={regData.username}
+                    onChange={(e) => setRegData({ ...regData, username: e.target.value.replace(/\s+/g, '') })}
+                    placeholder="उदा. rahul99 अथवा shyam_store"
+                    className={`w-full pl-9 pr-3 py-2 text-xs font-semibold border rounded-xl outline-none transition-all ${
+                      regData.username && users && users.some(u => u.username.toLowerCase() === regData.username.trim().toLowerCase())
+                        ? 'border-rose-400 bg-rose-50/50 text-rose-900 focus:ring-2 focus:ring-rose-500'
+                        : 'border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500'
+                    }`}
+                    required
+                  />
+                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                </div>
+                {regData.username && users && users.some(u => u.username.toLowerCase() === regData.username.trim().toLowerCase()) ? (
+                  <p className="text-[11px] text-rose-600 font-bold mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    <span>⚠️ यह यूजरनेम पहले से लिया हुआ है! कृपया दूसरा नाम चुनें।</span>
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    लॉगिन करने हेतु कम से कम 3 अक्षरों का यूनिक यूजरनेम।
+                  </p>
+                )}
+              </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
-                      स्ट्रॉन्ग पासवर्ड *
+              {/* 2. Mobile Number Field (WhatsApp Verified) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  2. मोबाइल नंबर (WhatsApp OTP सत्यापन हेतु) *
+                </label>
+                <div className="relative flex">
+                  <span className="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-slate-300 bg-slate-100 text-slate-600 font-bold text-xs">
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    value={regData.mobile}
+                    onKeyDown={(e) => {
+                      if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
+                        e.preventDefault();
+                      }
+                    }}
+                    onChange={(e) => setRegData({ ...regData, mobile: formatMobileInput(e.target.value) })}
+                    placeholder="9829012345"
+                    className={`w-full px-3 py-2 text-xs font-mono font-bold border rounded-r-xl outline-none transition-all ${
+                      regData.mobile.length === 10 && users && users.some(u => u.profile?.mobile === regData.mobile)
+                        ? 'border-rose-400 bg-rose-50/50 text-rose-900 focus:ring-2 focus:ring-rose-500'
+                        : 'border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500'
+                    }`}
+                    required
+                  />
+                </div>
+                {regData.mobile.length === 10 && users && users.some(u => u.profile?.mobile === regData.mobile) ? (
+                  <p className="text-[11px] text-rose-600 font-bold mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    <span>⚠️ इस नंबर से खाता पहले से मौजूद है! सीधे लॉगिन करें।</span>
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    इस नंबर पर 4-अंकों का WhatsApp OTP भेजा जाएगा।
+                  </p>
+                )}
+              </div>
+
+              {/* 3. Password & 4. Confirm Password */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      3. पासवर्ड (Password) *
                     </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="text-[10px] text-indigo-600 font-semibold hover:underline"
+                    >
+                      {showPassword ? 'छुपाएं' : 'दिखाएं'}
+                    </button>
+                  </div>
+                  <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       name="password"
@@ -1022,16 +935,19 @@ export default function AuthPage() {
                       autoComplete="new-password"
                       value={regData.password}
                       onChange={(e) => setRegData({ ...regData, password: e.target.value })}
-                      placeholder="कम से कम 8 अक्षर"
-                      className="w-full px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="कम से कम 6 अक्षर"
+                      className="w-full pl-9 pr-3 py-2 text-xs font-semibold border border-slate-300 rounded-xl bg-white outline-none focus:ring-2 focus:ring-indigo-500"
                       required
                     />
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                   </div>
+                </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
-                      कन्फर्म पासवर्ड *
-                    </label>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    4. कन्फर्म पासवर्ड *
+                  </label>
+                  <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       name="confirmPassword"
@@ -1041,284 +957,51 @@ export default function AuthPage() {
                       value={regData.confirmPassword}
                       onChange={(e) => setRegData({ ...regData, confirmPassword: e.target.value })}
                       placeholder="पासवर्ड दोबारा लिखें"
-                      className="w-full px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
+                      className={`w-full pl-9 pr-3 py-2 text-xs font-semibold border rounded-xl bg-white outline-none focus:ring-2 focus:ring-indigo-500 ${
+                        regData.confirmPassword && regData.password !== regData.confirmPassword
+                          ? 'border-rose-400 bg-rose-50/30'
+                          : 'border-slate-300'
+                      }`}
                       required
                     />
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                   </div>
-                </div>
-
-                {/* Password Strength Meter */}
-                {regData.password && (
-                  <div className="space-y-1 pt-1">
-                    <div className="flex justify-between items-center text-[10px]">
-                      <span className="font-bold text-slate-600">पासवर्ड मजबूती:</span>
-                      <span className={`font-bold ${passwordStrength.textColor}`}>
-                        {passwordStrength.label}
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden flex gap-0.5">
-                      {[1, 2, 3, 4, 5].map((level) => (
-                        <div
-                          key={level}
-                          className={`h-full flex-1 transition-all ${
-                            level <= passwordStrength.score ? passwordStrength.color : 'bg-slate-200'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <p className="text-[10px] text-slate-400">
-                      मजबूत पासवर्ड में कम से कम 8 अक्षर, बड़ा अक्षर (A-Z), अंक (0-9) व विशेष चिन्ह (@#$) शामिल करें।
+                  {regData.confirmPassword && regData.password !== regData.confirmPassword && (
+                    <p className="text-[10px] text-rose-600 font-semibold mt-1">
+                      ⚠️ पासवर्ड मेल नहीं खा रहा
                     </p>
-                  </div>
-                )}
-              </div>
-
-              {/* SECTION B: SHOP & FIRM PROFILE */}
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
-                <span className="text-xs font-bold text-indigo-950 uppercase tracking-wide block">
-                  2. दुकान / फर्म का विवरण (Shop Profile):
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
-                      दुकान / फर्म का नाम (Shop Name) *
-                    </label>
-                    <input
-                      type="text"
-                      value={regData.shopName}
-                      onChange={(e) => setRegData({ ...regData, shopName: e.target.value })}
-                      placeholder="उदा. श्री श्याम मोबाइल & इलेक्ट्रॉनिक्स"
-                      className="w-full px-3 py-1.5 text-xs font-bold text-slate-900 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
-                      प्रोपराइटर / मालिक का नाम *
-                    </label>
-                    <input
-                      type="text"
-                      value={regData.ownerName}
-                      onChange={(e) => setRegData({ ...regData, ownerName: e.target.value })}
-                      placeholder="उदा. रमेश कुमार शर्मा"
-                      className="w-full px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
-                      प्राथमिक मोबाइल नंबर (10 अंक) *
-                    </label>
-                    <input
-                      type="tel"
-                      maxLength={10}
-                      value={regData.mobile}
-                      onKeyDown={(e) => {
-                        if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
-                          e.preventDefault();
-                        }
-                      }}
-                      onChange={(e) => setRegData({ ...regData, mobile: formatMobileInput(e.target.value) })}
-                      placeholder="9829012345"
-                      className="w-full px-3 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
-                      अतिरिक्त मोबाइल नं. 2 (Optional / ऐच्छिक)
-                    </label>
-                    <input
-                      type="tel"
-                      maxLength={10}
-                      value={regData.alternateMobile}
-                      onKeyDown={(e) => {
-                        if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
-                          e.preventDefault();
-                        }
-                      }}
-                      onChange={(e) => setRegData({ ...regData, alternateMobile: formatMobileInput(e.target.value) })}
-                      placeholder="वैकल्पिक नंबर (ऐच्छिक)"
-                      className="w-full px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
-                      ईमेल पता (Email) *
-                    </label>
-                    <input
-                      type="email"
-                      value={regData.email}
-                      onChange={(e) => setRegData({ ...regData, email: formatEmailInput(e.target.value) })}
-                      placeholder="shop@example.com"
-                      className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                  <div className="sm:col-span-6">
-                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
-                      दुकान का पूरा पता (बिल पर प्रिंट होगा) *
-                    </label>
-                    <input
-                      type="text"
-                      value={regData.address}
-                      onChange={(e) => setRegData({ ...regData, address: e.target.value })}
-                      placeholder="दुकान नं. 5, मेन मार्केट, स्टेशन रोड"
-                      className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-                      required
-                    />
-                  </div>
-                  <div className="sm:col-span-3">
-                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
-                      राज्य (State) *
-                    </label>
-                    <input
-                      type="text"
-                      value={regData.state}
-                      onChange={(e) => setRegData({ ...regData, state: e.target.value })}
-                      className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-                      required
-                    />
-                  </div>
-                  <div className="sm:col-span-3">
-                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
-                      पिनकोड (6 अंक) *
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={6}
-                      value={regData.pincode}
-                      onKeyDown={(e) => {
-                        if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
-                          e.preventDefault();
-                        }
-                      }}
-                      onChange={(e) => setRegData({ ...regData, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
-                      placeholder="332001"
-                      className="w-full px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-                      required
-                    />
-                  </div>
+                  )}
                 </div>
               </div>
 
-              {/* SECTION C: GST & BANK / UPI DETAILS */}
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
-                <span className="text-xs font-bold text-indigo-950 uppercase tracking-wide block">
-                  3. टैक्स, बैंक व UPI QR विवरण:
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
-                      GSTIN नंबर (Optional / ऐच्छिक - यदि उपलब्ध हो)
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={15}
-                      value={regData.gstin}
-                      onChange={(e) => {
-                        const val = formatGstinInput(e.target.value);
-                        let nextPan = regData.pan;
-                        if (val.length >= 12 && (!regData.pan || (regData.gstin.length >= 12 && regData.pan === regData.gstin.slice(2, 12)))) {
-                          nextPan = val.slice(2, 12);
-                        }
-                        setRegData({ ...regData, gstin: val, pan: nextPan });
-                      }}
-                      placeholder="08AAAAA0000A1Z5 (ऐच्छिक)"
-                      className="w-full px-3 py-1.5 text-xs font-mono uppercase font-bold text-indigo-900 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
+              {/* Password Strength Indicator */}
+              {regData.password && (
+                <div className="space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                  <div className="flex justify-between items-center text-[10px]">
+                    <span className="font-bold text-slate-600">पासवर्ड मजबूती:</span>
+                    <span className={`font-bold ${passwordStrength.textColor}`}>
+                      {passwordStrength.label}
+                    </span>
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
-                      PAN नंबर (10 अक्षर) *
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={10}
-                      value={regData.pan}
-                      onChange={(e) => setRegData({ ...regData, pan: formatPanInput(e.target.value) })}
-                      placeholder="AAAAA0000A"
-                      className="w-full px-3 py-1.5 text-xs font-mono uppercase font-bold border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-                      required
-                    />
+                  <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden flex gap-0.5">
+                    {[1, 2, 3, 4, 5].map((level) => (
+                      <div
+                        key={level}
+                        className={`h-full flex-1 transition-all ${
+                          level <= passwordStrength.score ? passwordStrength.color : 'bg-slate-200'
+                        }`}
+                      />
+                    ))}
                   </div>
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
-                      बैंक का नाम *
-                    </label>
-                    <input
-                      type="text"
-                      value={regData.bankName}
-                      onChange={(e) => setRegData({ ...regData, bankName: e.target.value })}
-                      placeholder="SBI / HDFC / PNB"
-                      className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
-                      खाता संख्या (A/C No) *
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={18}
-                      value={regData.accountNo}
-                      onKeyDown={(e) => {
-                        if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
-                          e.preventDefault();
-                        }
-                      }}
-                      onChange={(e) => setRegData({ ...regData, accountNo: formatAccountNoInput(e.target.value) })}
-                      placeholder="1234567890"
-                      className="w-full px-3 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
-                      IFSC कोड *
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={11}
-                      value={regData.ifsc}
-                      onChange={(e) => setRegData({ ...regData, ifsc: formatIfscInput(e.target.value) })}
-                      placeholder="SBIN0031245"
-                      className="w-full px-3 py-1.5 text-xs font-mono uppercase font-bold border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
-                      UPI ID (QR कोड हेतु) *
-                    </label>
-                    <input
-                      type="text"
-                      value={regData.upiId}
-                      onChange={(e) => setRegData({ ...regData, upiId: formatUpiInput(e.target.value) })}
-                      placeholder="shyam@okhdfcbank"
-                      className="w-full px-3 py-1.5 text-xs font-mono font-bold text-emerald-800 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
+              )}
 
               {/* Anti-Robot Captcha */}
               <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <span>एंटी-रोबोट सुरक्षा कैप्चा (Security Captcha) *</span>
+                    <span>एंटी-रोबोट सुरक्षा कैप्चा *</span>
                   </span>
                   <button
                     type="button"
@@ -1338,7 +1021,7 @@ export default function AuthPage() {
                     value={captchaInput}
                     onChange={(e) => setCaptchaInput(e.target.value)}
                     placeholder="जोड़ का उत्तर यहाँ लिखें"
-                    className="flex-1 px-3 py-2 text-xs font-mono font-bold border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="flex-1 px-3 py-2 text-xs font-mono font-bold border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
                     required
                   />
                 </div>
@@ -1349,7 +1032,7 @@ export default function AuthPage() {
                 type="submit"
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
               >
-                <span>WhatsApp OTP सत्यापन हेतु आगे बढ़ें</span>
+                <span>WhatsApp OTP प्राप्त करें व खाता बनाएं</span>
                 <Send className="w-4 h-4" />
               </button>
             </form>
@@ -2017,12 +1700,19 @@ export default function AuthPage() {
                   {signupSuccessModal.creds.password}
                 </span>
               </div>
-              <div className="flex justify-between items-center text-xs pt-1 border-t border-slate-200">
-                <span className="text-slate-500 font-medium">दुकान / फर्म:</span>
-                <span className="font-bold text-slate-800">
-                  {signupSuccessModal.creds.shopName}
-                </span>
-              </div>
+              {signupSuccessModal.creds.shopName ? (
+                <div className="flex justify-between items-center text-xs pt-1 border-t border-slate-200">
+                  <span className="text-slate-500 font-medium">दुकान / फर्म:</span>
+                  <span className="font-bold text-slate-800">
+                    {signupSuccessModal.creds.shopName}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex justify-between items-center text-[11px] pt-1 border-t border-slate-200 text-indigo-800 bg-indigo-50/80 px-2.5 py-1.5 rounded-lg">
+                  <span className="font-semibold">ℹ️ फर्म व बैंक विवरण:</span>
+                  <span className="font-bold">प्रथम बार टैब खोलने पर सेट होगा</span>
+                </div>
+              )}
               <div className="flex justify-between items-center text-xs">
                 <span className="text-slate-500 font-medium">पंजीकृत मोबाइल:</span>
                 <span className="font-mono text-slate-700 font-bold">
@@ -2043,7 +1733,7 @@ export default function AuthPage() {
                 type="button"
                 onClick={() => {
                   navigator.clipboard.writeText(
-                    `Smart Billing Login Credentials:\nUsername: ${signupSuccessModal.creds.username}\nPassword: ${signupSuccessModal.creds.password}\nShop: ${signupSuccessModal.creds.shopName}\nMobile: ${signupSuccessModal.creds.mobile}`
+                    `Smart Billing Login Credentials:\nUsername: ${signupSuccessModal.creds.username}\nPassword: ${signupSuccessModal.creds.password}\nMobile: ${signupSuccessModal.creds.mobile}`
                   );
                   setCopiedCreds(true);
                   setTimeout(() => setCopiedCreds(false), 2500);

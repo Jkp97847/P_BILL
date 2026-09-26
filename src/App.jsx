@@ -16,14 +16,37 @@ import PrintablePurchaseInvoice from './components/printable/PrintablePurchaseIn
 import ChoicePortalHub from './components/portal/ChoicePortalHub';
 import NonGstApp from './nongst/NonGstApp';
 import RechargeApp from './recharge/RechargeApp';
+import FirstTimeGstSetupModal from './components/modals/FirstTimeGstSetupModal';
 import { ShieldCheck } from 'lucide-react';
 
 function MainApp() {
-  const { activeTab, activePrintBill, printDocument, settings } = useBilling();
-  const { setActiveAdminView } = useAuth();
+  const { activeTab, activePrintBill, printDocument, settings, updateSettings } = useBilling();
+  const { currentUser, impersonatedSeller, setSelectedModule, saveUserGstin, setActiveAdminView } = useAuth();
+  const activeSeller = impersonatedSeller || currentUser;
+
+  const handleSaveFirstTimeGst = (newSettings) => {
+    updateSettings({
+      ...newSettings,
+      isConfigured: true
+    });
+    if (newSettings.gstin) {
+      saveUserGstin(activeSeller?.id || activeSeller?.username, newSettings.gstin);
+    }
+  };
+
+  const isConfigured = Boolean(settings?.isConfigured);
 
   return (
     <>
+      {/* Mandatory Onboarding Modal if Tab 1 Firm Details not yet filled */}
+      {!isConfigured && (
+        <FirstTimeGstSetupModal
+          initialSettings={settings}
+          onSave={handleSaveFirstTimeGst}
+          onExit={() => setSelectedModule('hub')}
+        />
+      )}
+
       {/* 1. SCREEN WRAPPER: Visible in browser, hidden when printing */}
       <div id="screen-wrapper" className="min-h-screen flex flex-col bg-slate-100 text-slate-900 font-sans">
         <Navbar />
@@ -122,9 +145,6 @@ function AppContent() {
 
     // 4. Option 1: Smart GST Billing
     if (selectedModule === 'gst_billing') {
-      if (!checkUserHasGstin(activeSeller)) {
-        return <ChoicePortalHub initialGstinModalOpen={true} />;
-      }
       return (
         <BillingProvider>
           <MainApp />

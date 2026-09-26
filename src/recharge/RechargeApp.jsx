@@ -5,13 +5,24 @@ import RechargeGenerateTab from './components/tabs/RechargeGenerateTab';
 import RechargeReportTab from './components/tabs/RechargeReportTab';
 import RechargeSettingsTab from './components/tabs/RechargeSettingsTab';
 import RechargeReceiptSlip from './components/RechargeReceiptSlip';
+import FirstTimeRechargeSetupModal from './components/FirstTimeRechargeSetupModal';
 
 function RechargeAppContent({ onBackToHub }) {
   const [activeTab, setActiveTab] = useState('generate');
-  const { activePrintSlip, settings } = useRecharge();
+  const { activePrintSlip, settings, updateSettings } = useRecharge();
+
+  const isConfigured = Boolean(settings?.isConfigured);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+      {/* Mandatory Onboarding Modal if Tab 3 Details not yet filled */}
+      {!isConfigured && (
+        <FirstTimeRechargeSetupModal
+          initialSettings={settings}
+          onSave={(newSettings) => updateSettings({ ...newSettings, isConfigured: true })}
+          onExit={onBackToHub}
+        />
+      )}
       {/* Screen Wrapper (hidden when printing) */}
       <div id="screen-wrapper" className="flex-1 flex flex-col no-print">
         <RechargeNavbar

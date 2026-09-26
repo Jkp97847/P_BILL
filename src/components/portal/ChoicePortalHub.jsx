@@ -123,20 +123,7 @@ export default function ChoicePortalHub({ initialGstinModalOpen = false }) {
       return;
     }
 
-    // SPECIAL CHECK FOR TAB 1 (Smart GST Billing):
-    // "yadi user ne gst no bhar rakhe h to hi tab1 khule nhi to user se wahi gst no bharne ka ek massage box de taki user bharkar save kar de or useke baad tab1 user kar sake baki tab me ayesha nhi hona chaiye"
-    if (key === 'gst_billing') {
-      const hasGst = checkUserHasGstin ? checkUserHasGstin(currentUser) : false;
-      if (!hasGst) {
-        setGstinInput('');
-        setGstinError('');
-        setGstinSuccess('');
-        setGstinModalOpen(true);
-        return;
-      }
-    }
-
-    // Launch module
+    // Launch module directly (each tab handles its own first-time onboarding modal)
     setSelectedModule(route);
   };
 

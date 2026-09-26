@@ -66,6 +66,7 @@ export function BillingProvider({ children }) {
 
   // Helper: create initial settings for a user
   const getInitialSettingsForUser = (userId, userObj) => {
+    const isDemo = userId === 'seller_demo' || userId === 'seller1' || userObj?.username === 'seller1';
     try {
       const scopedKey = `billing_app_settings_${userId}`;
       const saved = localStorage.getItem(scopedKey);
@@ -74,8 +75,11 @@ export function BillingProvider({ children }) {
         return {
           ...DEFAULT_SETTINGS,
           ...parsed,
-          ownerName: parsed.ownerName || userObj?.profile?.name || DEFAULT_SETTINGS.ownerName,
-          firmName: parsed.firmName || userObj?.profile?.shopName || DEFAULT_SETTINGS.firmName,
+          isConfigured: parsed.isConfigured !== undefined 
+            ? Boolean(parsed.isConfigured) 
+            : (isDemo || Boolean(parsed.firmName && parsed.ownerName)),
+          ownerName: parsed.ownerName || (isDemo ? DEFAULT_SETTINGS.ownerName : ''),
+          firmName: parsed.firmName || (isDemo ? DEFAULT_SETTINGS.firmName : ''),
           selectedTheme: parsed.selectedTheme || DEFAULT_SETTINGS.selectedTheme,
           displayOptions: {
             ...DEFAULT_SETTINGS.displayOptions,
@@ -85,13 +89,14 @@ export function BillingProvider({ children }) {
       }
 
       // Check legacy global settings if demo user
-      if (userId === 'seller_demo') {
+      if (isDemo) {
         const legacy = localStorage.getItem('billing_app_settings');
         if (legacy) {
           const parsed = JSON.parse(legacy);
           return {
             ...DEFAULT_SETTINGS,
             ...parsed,
+            isConfigured: true,
             ownerName: parsed.ownerName || DEFAULT_SETTINGS.ownerName,
             selectedTheme: parsed.selectedTheme || DEFAULT_SETTINGS.selectedTheme,
             displayOptions: {
@@ -100,24 +105,36 @@ export function BillingProvider({ children }) {
             }
           };
         }
-      }
 
-      // Fresh settings based on user's profile
-      if (userObj?.profile) {
         return {
           ...DEFAULT_SETTINGS,
-          firmName: userObj.profile.shopName || DEFAULT_SETTINGS.firmName,
-          ownerName: userObj.profile.name || DEFAULT_SETTINGS.ownerName,
-          mobile: userObj.profile.mobile || DEFAULT_SETTINGS.mobile,
-          address: userObj.profile.address || DEFAULT_SETTINGS.address,
-          email: userObj.profile.email || DEFAULT_SETTINGS.email,
-          selectedTheme: 'classic'
+          isConfigured: true
         };
       }
 
-      return DEFAULT_SETTINGS;
+      // Fresh settings for non-demo new user: unconfigured until first-time modal completion
+      return {
+        ...DEFAULT_SETTINGS,
+        firmName: '',
+        tagline: 'होलसेल एवं रिटेल जनरल मर्चेंट',
+        ownerName: '',
+        mobile: userObj?.profile?.mobile || '',
+        alternateMobile: '',
+        address: '',
+        email: '',
+        gstin: '',
+        bankName: '',
+        accountNo: '',
+        ifsc: '',
+        upiId: '',
+        selectedTheme: 'classic',
+        isConfigured: false
+      };
     } catch {
-      return DEFAULT_SETTINGS;
+      return {
+        ...DEFAULT_SETTINGS,
+        isConfigured: isDemo
+      };
     }
   };
 
@@ -200,6 +217,7 @@ export function BillingProvider({ children }) {
     setSettings(prev => ({
       ...prev,
       ...newSettings,
+      isConfigured: newSettings.isConfigured !== undefined ? Boolean(newSettings.isConfigured) : prev.isConfigured,
       displayOptions: {
         ...prev.displayOptions,
         ...(newSettings.displayOptions || {})

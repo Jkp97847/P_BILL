@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { NonGstToastProvider } from './context/NonGstToastContext';
 import { NonGstBillingProvider, useBilling } from './context/NonGstBillingContext';
 import { useAuth } from '../context/AuthContext';
@@ -8,28 +8,25 @@ import NonGstReportTab from './components/tabs/NonGstReportTab';
 import NonGstFormatEditTab from './components/tabs/NonGstFormatEditTab';
 import NonGstPrintableBill from './components/NonGstPrintableBill';
 import PrintableReport from '../components/printable/PrintableReport';
+import FirstTimeNonGstSetupModal from './components/FirstTimeNonGstSetupModal';
 
 function NonGstMain() {
-  const { currentUser } = useAuth();
+  const { setSelectedModule } = useAuth();
   const { activeTab, activePrintBill, printDocument, settings, updateSettings } = useBilling();
 
-  // If user has specific shop profile, sync when logging in
-  useEffect(() => {
-    if (currentUser?.profile?.shopName && settings && updateSettings) {
-      if (settings.firmName === 'श्री गणेश ट्रेडर्स' && currentUser.profile.shopName !== 'श्री गणेश ट्रेडर्स') {
-        updateSettings({
-          ...settings,
-          firmName: currentUser.profile.shopName,
-          ownerName: currentUser.profile.ownerName || currentUser.profile.name || settings.ownerName,
-          mobile: currentUser.profile.mobile || settings.mobile,
-          address: currentUser.profile.address || settings.address
-        });
-      }
-    }
-  }, [currentUser]);
+  const isConfigured = Boolean(settings?.isConfigured);
 
   return (
     <>
+      {/* Mandatory Onboarding Modal if Tab 2 Firm Details not yet filled */}
+      {!isConfigured && (
+        <FirstTimeNonGstSetupModal
+          initialSettings={settings}
+          onSave={(newSettings) => updateSettings({ ...newSettings, isConfigured: true })}
+          onExit={() => setSelectedModule('hub')}
+        />
+      )}
+
       {/* 1. SCREEN WRAPPER: Visible in browser, hidden when printing */}
       <div id="screen-wrapper" className="min-h-screen flex flex-col bg-slate-100 text-slate-900 font-sans">
         <NonGstNavbar />
