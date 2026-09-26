@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useBilling } from '../context/NonGstBillingContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../context/NonGstToastContext';
+import { useNavigationHistory } from '../../context/NavigationHistoryContext';
 import { 
   FilePlus2, 
   FileSpreadsheet, 
@@ -18,6 +19,7 @@ import {
 export default function NonGstNavbar() {
   const { activeTab, setActiveTab, settings, bills } = useBilling();
   const { currentUser, logout, setSelectedModule, impersonatedSeller, stopImpersonation } = useAuth();
+  const { navigate } = useNavigationHistory();
   const { showToast } = useToast();
 
   const [changePassOpen, setChangePassOpen] = useState(false);
@@ -96,7 +98,10 @@ export default function NonGstNavbar() {
               {/* Hub / Choice Selector Button */}
               <button
                 type="button"
-                onClick={() => setSelectedModule('hub')}
+                onClick={() => {
+                  setSelectedModule('hub');
+                  navigate({ module: 'hub' });
+                }}
                 className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs shadow-sm transition-colors cursor-pointer"
                 title="स्मार्ट बिलिंग मुख्य हब (Choice Portal) पर वापस जाएं"
               >
@@ -107,7 +112,10 @@ export default function NonGstNavbar() {
               {/* Direct Switch to GST Billing */}
               <button
                 type="button"
-                onClick={() => setSelectedModule('gst_billing')}
+                onClick={() => {
+                  setSelectedModule('gst_billing');
+                  navigate({ module: 'gst_billing', tab: 'generate' });
+                }}
                 className="hidden md:flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg font-bold text-xs transition-colors cursor-pointer"
                 title="Smart GST Billing सॉफ्टवेयर पर जाएं"
               >
@@ -132,8 +140,11 @@ export default function NonGstNavbar() {
               <button
                 type="button"
                 onClick={() => {
-                  logout();
-                  showToast('info', 'आप सुरक्षित रूप से लॉगआउट हो गए हैं।', 'लॉगआउट');
+                  if (window.confirm('क्या आप लॉगआउट करना चाहते हैं?')) {
+                    logout();
+                    navigate({ module: 'auth', authTab: 'login' });
+                    showToast('info', 'आप सुरक्षित रूप से लॉगआउट हो गए हैं।', 'लॉगआउट');
+                  }
                 }}
                 className="flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg font-bold transition-colors cursor-pointer"
                 title="सॉफ्टवेयर से लॉगआउट करें"
@@ -153,7 +164,10 @@ export default function NonGstNavbar() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    navigate({ module: 'nongst_billing', tab: tab.id });
+                  }}
                   className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap cursor-pointer ${
                     isActive
                       ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200'

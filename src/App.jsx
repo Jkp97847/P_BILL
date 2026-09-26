@@ -17,6 +17,7 @@ import ChoicePortalHub from './components/portal/ChoicePortalHub';
 import NonGstApp from './nongst/NonGstApp';
 import RechargeApp from './recharge/RechargeApp';
 import FirstTimeGstSetupModal from './components/modals/FirstTimeGstSetupModal';
+import LogoutConfirmModal from './components/modals/LogoutConfirmModal';
 import { NavigationHistoryProvider, useNavigationHistory } from './context/NavigationHistoryContext';
 import { ShieldCheck } from 'lucide-react';
 
@@ -32,13 +33,6 @@ function MainApp() {
       setActiveTab(currentRoute.tab);
     }
   }, [currentRoute.module, currentRoute.tab, activeTab, setActiveTab]);
-
-  // Sync activeTab -> route when tab is clicked
-  React.useEffect(() => {
-    if (activeTab && currentRoute.module === 'gst_billing' && currentRoute.tab !== activeTab) {
-      navigate({ module: 'gst_billing', tab: activeTab });
-    }
-  }, [activeTab, currentRoute.module, currentRoute.tab, navigate]);
 
   const handleSaveFirstTimeGst = (newSettings) => {
     updateSettings({
@@ -59,7 +53,10 @@ function MainApp() {
         <FirstTimeGstSetupModal
           initialSettings={settings}
           onSave={handleSaveFirstTimeGst}
-          onExit={() => setSelectedModule('hub')}
+          onExit={() => {
+            setSelectedModule('hub');
+            navigate({ module: 'hub' });
+          }}
         />
       )}
 
@@ -134,49 +131,17 @@ function AppContent() {
     selectedModule,
     setSelectedModule,
     checkUserHasGstin,
-    stopImpersonation
+    stopImpersonation,
+    logout
   } = useAuth();
   const { currentRoute, navigate, replace } = useNavigationHistory();
 
-  // 1. Sync from Browser Back/Forward (currentRoute) to AuthContext state
+  // If Super Admin backed out of an impersonated seller
   React.useEffect(() => {
-    if (!currentUser) return;
-
-    // If Super Admin backed out of an impersonated seller
-    if (currentUser.role === 'superadmin') {
-      if (currentRoute.module === 'superadmin' && impersonatedSeller) {
-        stopImpersonation();
-        return;
-      }
+    if (currentUser?.role === 'superadmin' && currentRoute.module === 'superadmin' && impersonatedSeller) {
+      stopImpersonation();
     }
-
-    if (currentRoute.module && currentRoute.module !== selectedModule && currentRoute.module !== 'auth') {
-      if (currentRoute.module === 'superadmin') {
-        if (currentUser.role === 'superadmin' && impersonatedSeller) {
-          stopImpersonation();
-        }
-      } else {
-        setSelectedModule(currentRoute.module);
-      }
-    }
-  }, [currentRoute.module, currentUser, selectedModule, impersonatedSeller, stopImpersonation, setSelectedModule]);
-
-  // 2. Sync from AuthContext selectedModule to Browser History (currentRoute)
-  React.useEffect(() => {
-    if (currentUser) {
-      if (currentUser.role === 'superadmin' && !impersonatedSeller) {
-        if (currentRoute.module !== 'superadmin') {
-          navigate({ module: 'superadmin' });
-        }
-      } else if (selectedModule && selectedModule !== currentRoute.module) {
-        if (currentRoute.module === 'auth') {
-          replace({ module: selectedModule });
-        } else {
-          navigate({ module: selectedModule });
-        }
-      }
-    }
-  }, [selectedModule, currentUser, impersonatedSeller, currentRoute.module, navigate, replace]);
+  }, [currentRoute.module, currentUser, impersonatedSeller, stopImpersonation]);
 
   // 1. Not logged in -> Show Login / Register AuthPage
   if (!currentUser) {
@@ -184,24 +149,30 @@ function AppContent() {
   }
 
   // 2. Super Admin Access Rule:
-  // - "super admin ke pass billing ki facility nhi honi chahiye kewal user ke pass honi chiye"
   // - Super admin has NO direct billing facility! Super admin ALWAYS stays in SuperAdminPortal UNLESS explicitly viewing a seller's panel!
   if (currentUser.role === 'superadmin' && !impersonatedSeller) {
-    return <SuperAdminPortal />;
+    return (
+      <>
+        {currentRoute.module === 'auth' && (
+          <LogoutConfirmModal
+            user={currentUser}
+            onConfirm={() => logout()}
+            onCancel={() => navigate({ module: 'superadmin' })}
+          />
+        )}
+        <SuperAdminPortal />
+      </>
+    );
   }
 
   // Active seller context: either the impersonated seller if admin, or the logged-in seller
   const activeSeller = impersonatedSeller || currentUser;
+  const effectiveModule = currentRoute.module || 'hub';
 
   // Render billing module
   const renderModule = () => {
-    // 3. Choice Portal Hub ('hub' or not selected yet)
-    if (!selectedModule || selectedModule === 'hub') {
-      return <ChoicePortalHub />;
-    }
-
-    // 4. Option 1: Smart GST Billing
-    if (selectedModule === 'gst_billing') {
+    // 1. Option 1: Smart GST Billing
+    if (effectiveModule === 'gst_billing') {
       return (
         <BillingProvider>
           <MainApp />
@@ -209,22 +180,34 @@ function AppContent() {
       );
     }
 
-    // 5. Option 2: Non GST All Only Billing
-    if (selectedModule === 'nongst_billing') {
+    // 2. Option 2: Non GST All Only Billing
+    if (effectiveModule === 'nongst_billing') {
       return <NonGstApp />;
     }
 
-    // 6. Option 3: Recharge & Utility Bill Payment
-    if (selectedModule === 'receipt_billing') {
-      return <RechargeApp onBackToHub={() => setSelectedModule('hub')} />;
+    // 3. Option 3: Recharge & Utility Bill Payment
+    if (effectiveModule === 'receipt_billing') {
+      return <RechargeApp onBackToHub={() => { setSelectedModule('hub'); navigate({ module: 'hub' }); }} />;
     }
 
-    // Fallback to Hub
+    // Default to Choice Portal Hub ('hub' or fallback)
     return <ChoicePortalHub />;
   };
 
   return (
     <>
+      {/* Logout Confirmation Modal when logged in user backs into 'auth' route from hub */}
+      {currentRoute.module === 'auth' && (
+        <LogoutConfirmModal
+          user={activeSeller}
+          onConfirm={() => {
+            logout();
+          }}
+          onCancel={() => {
+            navigate({ module: 'hub' });
+          }}
+        />
+      )}
       {/* If Super Admin is viewing a seller's panel, show persistent top bar with Exit button */}
       {currentUser.role === 'superadmin' && impersonatedSeller && (
         <div className="bg-gradient-to-r from-purple-950 via-indigo-900 to-purple-950 text-white px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 shadow-xl sticky top-0 z-50 text-xs font-bold border-b-2 border-amber-400 no-print">

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigationHistory } from '../../context/NavigationHistoryContext';
 import { 
   Receipt, 
   ShoppingCart, 
@@ -71,6 +72,7 @@ export default function ChoicePortalHub({ initialGstinModalOpen = false }) {
     impersonatedSeller,
     stopImpersonation
   } = useAuth();
+  const { navigate } = useNavigationHistory();
 
   const [deniedModal, setDeniedModal] = useState({ isOpen: false, moduleName: '' });
   const [comingSoonModal, setComingSoonModal] = useState({ isOpen: false, moduleName: '' });
@@ -125,6 +127,7 @@ export default function ChoicePortalHub({ initialGstinModalOpen = false }) {
 
     // Launch module directly (each tab handles its own first-time onboarding modal)
     setSelectedModule(route);
+    navigate({ module: route, tab: 'generate' });
   };
 
   const handleSaveGstinAndLaunch = (e) => {
@@ -149,6 +152,7 @@ export default function ChoicePortalHub({ initialGstinModalOpen = false }) {
           setIsSavingGstin(false);
           setGstinModalOpen(false);
           setSelectedModule('gst_billing');
+          navigate({ module: 'gst_billing', tab: 'generate' });
         }, 500);
       } else {
         setIsSavingGstin(false);
@@ -238,7 +242,12 @@ export default function ChoicePortalHub({ initialGstinModalOpen = false }) {
             {/* Logout Button */}
             <button
               type="button"
-              onClick={logout}
+              onClick={() => {
+                if (window.confirm('क्या आप लॉगआउट करना चाहते हैं?')) {
+                  logout();
+                  navigate({ module: 'auth', authTab: 'login' });
+                }
+              }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-xl font-bold transition-all shadow-sm cursor-pointer"
               title="सॉफ्टवेयर से लॉगआउट करें"
             >

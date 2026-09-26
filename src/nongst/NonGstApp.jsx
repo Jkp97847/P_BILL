@@ -24,13 +24,6 @@ function NonGstMain() {
     }
   }, [currentRoute.module, currentRoute.tab, activeTab, setActiveTab]);
 
-  // Sync activeTab -> route when tab is clicked
-  React.useEffect(() => {
-    if (activeTab && currentRoute.module === 'nongst_billing' && currentRoute.tab !== activeTab) {
-      navigate({ module: 'nongst_billing', tab: activeTab });
-    }
-  }, [activeTab, currentRoute.module, currentRoute.tab, navigate]);
-
   const isConfigured = Boolean(settings?.isConfigured);
 
   return (
@@ -40,7 +33,10 @@ function NonGstMain() {
         <FirstTimeNonGstSetupModal
           initialSettings={settings}
           onSave={(newSettings) => updateSettings({ ...newSettings, isConfigured: true })}
-          onExit={() => setSelectedModule('hub')}
+          onExit={() => {
+            setSelectedModule('hub');
+            navigate({ module: 'hub' });
+          }}
         />
       )}
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRecharge } from '../context/RechargeContext';
+import { useNavigationHistory } from '../../context/NavigationHistoryContext';
 import { 
   Zap, 
   FileText, 
@@ -15,13 +16,14 @@ import {
 export default function RechargeNavbar({ activeTab, setActiveTab, onBackToHub }) {
   const { currentUser, logout, setSelectedModule, impersonatedSeller, stopImpersonation } = useAuth();
   const { settings, effectiveSeller, isSuperAdmin } = useRecharge();
+  const { navigate } = useNavigationHistory();
 
   const handleReturnToHub = () => {
     if (onBackToHub) {
       onBackToHub();
-    } else {
-      setSelectedModule('hub');
     }
+    setSelectedModule('hub');
+    navigate({ module: 'hub' });
   };
 
   const shopTitle = settings?.shopName || effectiveSeller?.profile?.shopName || 'स्मार्ट रिचार्ज केंद्र';
@@ -100,8 +102,13 @@ export default function RechargeNavbar({ activeTab, setActiveTab, onBackToHub })
 
           <button
             type="button"
-            onClick={logout}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-bold transition-all"
+            onClick={() => {
+              if (window.confirm('क्या आप लॉगआउट करना चाहते हैं?')) {
+                logout();
+                navigate({ module: 'auth', authTab: 'login' });
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-bold transition-all cursor-pointer"
             title="सिस्टम से सुरक्षित लॉगआउट करें"
           >
             <LogOut className="w-3.5 h-3.5" />
@@ -115,7 +122,10 @@ export default function RechargeNavbar({ activeTab, setActiveTab, onBackToHub })
         <div className="max-w-7xl mx-auto px-4 flex items-center gap-1 overflow-x-auto py-1.5">
           <button
             type="button"
-            onClick={() => setActiveTab('generate')}
+            onClick={() => {
+              setActiveTab('generate');
+              navigate({ module: 'receipt_billing', tab: 'generate' });
+            }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'generate'
                 ? 'bg-amber-500 text-slate-950 shadow-md font-black shadow-amber-500/20'
@@ -128,7 +138,10 @@ export default function RechargeNavbar({ activeTab, setActiveTab, onBackToHub })
 
           <button
             type="button"
-            onClick={() => setActiveTab('report')}
+            onClick={() => {
+              setActiveTab('report');
+              navigate({ module: 'receipt_billing', tab: 'report' });
+            }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'report'
                 ? 'bg-amber-500 text-slate-950 shadow-md font-black shadow-amber-500/20'
@@ -141,7 +154,10 @@ export default function RechargeNavbar({ activeTab, setActiveTab, onBackToHub })
 
           <button
             type="button"
-            onClick={() => setActiveTab('settings')}
+            onClick={() => {
+              setActiveTab('settings');
+              navigate({ module: 'receipt_billing', tab: 'settings' });
+            }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'settings'
                 ? 'bg-amber-500 text-slate-950 shadow-md font-black shadow-amber-500/20'

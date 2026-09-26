@@ -20,13 +20,6 @@ function RechargeAppContent({ onBackToHub }) {
     }
   }, [currentRoute.module, currentRoute.tab, activeTab]);
 
-  // Sync activeTab -> route when tab is clicked
-  React.useEffect(() => {
-    if (activeTab && currentRoute.module === 'receipt_billing' && currentRoute.tab !== activeTab) {
-      navigate({ module: 'receipt_billing', tab: activeTab });
-    }
-  }, [activeTab, currentRoute.module, currentRoute.tab, navigate]);
-
   const isConfigured = Boolean(settings?.isConfigured);
 
   return (

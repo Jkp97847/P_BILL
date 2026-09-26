@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useBilling } from '../context/BillingContext';
 import { useAuth } from '../context/AuthContext';
+import { useNavigationHistory } from '../context/NavigationHistoryContext';
 import { 
   FilePlus2, 
   Truck, 
@@ -27,6 +28,7 @@ export default function Navbar() {
     setActiveAdminView,
     setSelectedModule
   } = useAuth();
+  const { navigate } = useNavigationHistory();
 
   // 5 Tabs: SALE, SALE REPORT, PURCHAGE, STOCK REPORT, SETTING
   const tabs = [
@@ -73,24 +75,29 @@ export default function Navbar() {
       if (e.key === 'F1') {
         e.preventDefault();
         setActiveTab('generate');
+        navigate({ module: 'gst_billing', tab: 'generate' });
       } else if (e.key === 'F2') {
         e.preventDefault();
         setActiveTab('report');
+        navigate({ module: 'gst_billing', tab: 'report' });
       } else if (e.key === 'F3') {
         e.preventDefault();
         setActiveTab('purchase');
+        navigate({ module: 'gst_billing', tab: 'purchase' });
       } else if (e.key === 'F4') {
         e.preventDefault();
         setActiveTab('stock');
+        navigate({ module: 'gst_billing', tab: 'stock' });
       } else if (e.key === 'F5') {
         e.preventDefault();
         setActiveTab('format');
+        navigate({ module: 'gst_billing', tab: 'format' });
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setActiveTab]);
+  }, [setActiveTab, navigate]);
 
   const activeFirmTitle = settings.firmName || activeSeller?.profile?.shopName || 'मोबाइल शॉप बिलिंग सॉफ्टवेयर';
 
@@ -165,7 +172,10 @@ export default function Navbar() {
             {/* Hub / Choice Selector Button */}
             <button
               type="button"
-              onClick={() => setSelectedModule('hub')}
+              onClick={() => {
+                setSelectedModule('hub');
+                navigate({ module: 'hub' });
+              }}
               className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs shadow-sm transition-colors cursor-pointer"
               title="स्मार्ट बिलिंग मुख्य हब (Choice Portal) पर वापस जाएं"
             >
@@ -176,7 +186,10 @@ export default function Navbar() {
             {/* Direct Switch to Non-GST Billing */}
             <button
               type="button"
-              onClick={() => setSelectedModule('nongst_billing')}
+              onClick={() => {
+                setSelectedModule('nongst_billing');
+                navigate({ module: 'nongst_billing', tab: 'generate' });
+              }}
               className="hidden md:flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg font-bold text-xs transition-colors cursor-pointer"
               title="Non GST Retail Billing सॉफ्टवेयर पर जाएं"
             >
@@ -211,6 +224,7 @@ export default function Navbar() {
               onClick={() => {
                 if (window.confirm('क्या आप लॉगआउट करना चाहते हैं?')) {
                   logout();
+                  navigate({ module: 'auth', authTab: 'login' });
                 }
               }}
               className="flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg border border-rose-200 transition-colors cursor-pointer"
@@ -231,7 +245,10 @@ export default function Navbar() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  navigate({ module: 'gst_billing', tab: tab.id });
+                }}
                 className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap cursor-pointer ${
                   isActive
                     ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200'

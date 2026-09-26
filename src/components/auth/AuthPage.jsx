@@ -56,10 +56,15 @@ export default function AuthPage() {
     isUsernameTaken,
     isMobileTaken
   } = useAuth();
-  const { currentRoute, navigate } = useNavigationHistory();
+  const { currentRoute, navigate, replace } = useNavigationHistory();
 
   // Tab State: 'login' | 'register' | 'forgot'
   const [activeTab, setActiveTab] = useState(() => currentRoute.authTab || 'login');
+
+  const switchAuthTab = (newTab) => {
+    setActiveTab(newTab);
+    replace({ module: 'auth', authTab: newTab });
+  };
 
   // Sync route.authTab -> activeTab when browser Back/Forward is clicked
   useEffect(() => {
@@ -67,13 +72,6 @@ export default function AuthPage() {
       setActiveTab(currentRoute.authTab);
     }
   }, [currentRoute.module, currentRoute.authTab, activeTab]);
-
-  // Sync activeTab -> route when tab changes
-  useEffect(() => {
-    if (activeTab && (currentRoute.module !== 'auth' || currentRoute.authTab !== activeTab)) {
-      navigate({ module: 'auth', authTab: activeTab });
-    }
-  }, [activeTab, currentRoute.module, currentRoute.authTab, navigate]);
 
   // Warning Message Box Modal State
   const [warningModal, setWarningModal] = useState({ isOpen: false, title: '', message: '', type: 'warning' });
@@ -288,6 +286,7 @@ export default function AuthPage() {
         generateNewCaptcha();
       } else {
         setSuccessMsg(`सफलतापूर्वक लॉगिन हुआ! स्वागत है, ${res.user.profile?.ownerName || res.user.username}`);
+        navigate({ module: 'hub' });
       }
     }, 400);
   };
@@ -318,6 +317,7 @@ export default function AuthPage() {
         generateAdminCaptcha();
       } else {
         setAdminModalOpen(false);
+        navigate({ module: 'superadmin' });
       }
     }, 400);
   };
@@ -678,7 +678,7 @@ export default function AuthPage() {
         <div className="grid grid-cols-2 bg-slate-100 p-1.5 gap-1 border-b border-slate-200 text-xs font-bold">
           <button
             type="button"
-            onClick={() => { setActiveTab('login'); setErrorMsg(''); setSuccessMsg(''); }}
+            onClick={() => { switchAuthTab('login'); setErrorMsg(''); setSuccessMsg(''); }}
             className={`py-3 px-4 rounded-xl text-center transition-all cursor-pointer flex items-center justify-center gap-2 ${
               activeTab === 'login' || activeTab === 'seller_login'
                 ? 'bg-indigo-600 text-white shadow-md'
@@ -690,7 +690,7 @@ export default function AuthPage() {
           </button>
           <button
             type="button"
-            onClick={() => { setActiveTab('register'); setErrorMsg(''); setSuccessMsg(''); }}
+            onClick={() => { switchAuthTab('register'); setErrorMsg(''); setSuccessMsg(''); }}
             className={`py-3 px-4 rounded-xl text-center transition-all cursor-pointer flex items-center justify-center gap-2 ${
               activeTab === 'register'
                 ? 'bg-indigo-600 text-white shadow-md'
@@ -779,7 +779,7 @@ export default function AuthPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveTab('forgot');
+                      switchAuthTab('forgot');
                       setForgotIdentifier(loginUsername);
                       setForgotStep(1);
                       setForgotError('');
@@ -867,7 +867,7 @@ export default function AuthPage() {
                   नया खाता बनाना चाहते हैं?{' '}
                   <button
                     type="button"
-                    onClick={() => setActiveTab('register')}
+                    onClick={() => switchAuthTab('register')}
                     className="text-indigo-600 font-bold hover:underline cursor-pointer"
                   >
                     नया यूजर / साइन-अप करें
@@ -1876,6 +1876,7 @@ export default function AuthPage() {
                   setActiveTab('login');
                   // Auto-login directly
                   login(u, p);
+                  navigate({ module: 'hub' });
                 }}
                 className="flex-1 py-3 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-md flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
               >
