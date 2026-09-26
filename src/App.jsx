@@ -150,7 +150,7 @@ function AppContent() {
 
   // 2. Super Admin Access Rule:
   // - Super admin has NO direct billing facility! Super admin ALWAYS stays in SuperAdminPortal UNLESS explicitly viewing a seller's panel!
-  if (currentUser.role === 'superadmin' && !impersonatedSeller) {
+  if (currentUser.role === 'superadmin' && (!impersonatedSeller || currentRoute.module === 'superadmin')) {
     return (
       <>
         {currentRoute.module === 'auth' && (
@@ -221,7 +221,10 @@ function AppContent() {
           </div>
           <button
             type="button"
-            onClick={stopImpersonation}
+            onClick={() => {
+              stopImpersonation();
+              navigate({ module: 'superadmin', tab: 'sellers' });
+            }}
             className="flex items-center gap-1.5 px-3 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all cursor-pointer"
             title="सेलर पोर्टल से बाहर निकलकर वापस सुपर एडमिन कंट्रोल में जाएं"
           >

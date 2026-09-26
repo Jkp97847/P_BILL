@@ -127,7 +127,10 @@ export default function NonGstNavbar() {
               {currentUser?.role === 'superadmin' && impersonatedSeller && (
                 <button
                   type="button"
-                  onClick={stopImpersonation}
+                  onClick={() => {
+                    stopImpersonation();
+                    navigate({ module: 'superadmin', tab: 'sellers' });
+                  }}
                   className="flex items-center gap-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg font-bold transition-colors cursor-pointer text-xs"
                   title="वापस सुपर एडमिन कंट्रोल पैनल में लौटें"
                 >

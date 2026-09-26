@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigationHistory } from '../../context/NavigationHistoryContext';
 import { 
   ShieldCheck, 
   Users, 
@@ -44,6 +45,7 @@ export default function SuperAdminPortal() {
     setSelectedModule,
     setActiveAdminView
   } = useAuth();
+  const { navigate } = useNavigationHistory();
 
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState('');
@@ -517,7 +519,10 @@ export default function SuperAdminPortal() {
                               {/* Assist / Impersonate as Seller */}
                               <button
                                 type="button"
-                                onClick={() => startImpersonation(seller.id)}
+                                onClick={() => {
+                                  navigate({ module: 'hub' });
+                                  startImpersonation(seller.id);
+                                }}
                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-bold text-xs rounded-xl shadow-xs hover:shadow transition-all cursor-pointer whitespace-nowrap"
                                 title={`सेलर "${seller.profile?.shopName || seller.username}" के पोर्टल / बिलिंग में जाएं`}
                               >

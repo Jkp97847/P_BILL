@@ -91,7 +91,10 @@ export default function RechargeNavbar({ activeTab, setActiveTab, onBackToHub })
           {currentUser?.role === 'superadmin' && impersonatedSeller && (
             <button
               type="button"
-              onClick={stopImpersonation}
+              onClick={() => {
+                stopImpersonation();
+                navigate({ module: 'superadmin', tab: 'sellers' });
+              }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs rounded-xl shadow-sm transition-all cursor-pointer"
               title="वापस सुपर एडमिन कंट्रोल रूम में लौटें"
             >

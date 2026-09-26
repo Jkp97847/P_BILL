@@ -90,13 +90,14 @@ export default function ChoicePortalHub({ initialGstinModalOpen = false }) {
     }
   }, [initialGstinModalOpen]);
 
-  const shopName = currentUser?.profile?.shopName || 'स्मार्ट बिलिंग सॉफ्टवेयर';
-  const ownerName = currentUser?.profile?.ownerName || currentUser?.profile?.name || currentUser?.username;
-  const mobile = currentUser?.profile?.mobile;
+  const activeSeller = impersonatedSeller || currentUser;
+  const shopName = activeSeller?.profile?.shopName || 'स्मार्ट बिलिंग सॉफ्टवेयर';
+  const ownerName = activeSeller?.profile?.ownerName || activeSeller?.profile?.name || activeSeller?.username;
+  const mobile = activeSeller?.profile?.mobile;
   const isAdmin = currentUser?.role === 'superadmin';
 
   // Allowed module checks
-  const modules = currentUser?.allowedModules || {
+  const modules = activeSeller?.allowedModules || {
     gst_billing: true,
     nongst_billing: true,
     receipt_billing: true,
@@ -104,7 +105,7 @@ export default function ChoicePortalHub({ initialGstinModalOpen = false }) {
   };
 
   // Check if current user has GST number
-  const userHasGst = checkUserHasGstin ? checkUserHasGstin(currentUser) : false;
+  const userHasGst = checkUserHasGstin ? checkUserHasGstin(activeSeller) : false;
 
   const handleSelectModule = (key, route) => {
     // If Admin disabled this module for user
@@ -230,7 +231,10 @@ export default function ChoicePortalHub({ initialGstinModalOpen = false }) {
             {isAdmin && impersonatedSeller && (
               <button
                 type="button"
-                onClick={stopImpersonation}
+                onClick={() => {
+                  stopImpersonation();
+                  navigate({ module: 'superadmin', tab: 'sellers' });
+                }}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl font-bold transition-all shadow-sm cursor-pointer"
                 title="वापस सुपर एडमिन कंट्रोल पैनल में लौटें"
               >

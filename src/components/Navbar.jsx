@@ -114,7 +114,10 @@ export default function Navbar() {
           </div>
           <button
             type="button"
-            onClick={stopImpersonation}
+            onClick={() => {
+              stopImpersonation();
+              navigate({ module: 'superadmin', tab: 'sellers' });
+            }}
             className="flex items-center gap-1 bg-purple-700 hover:bg-purple-600 text-white px-3 py-1 rounded text-xs font-bold transition-colors cursor-pointer shadow-xs"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
@@ -200,7 +203,10 @@ export default function Navbar() {
             {currentUser?.role === 'superadmin' && impersonatedSeller && (
               <button
                 type="button"
-                onClick={stopImpersonation}
+                onClick={() => {
+                  stopImpersonation();
+                  navigate({ module: 'superadmin', tab: 'sellers' });
+                }}
                 className="flex items-center gap-1 px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold rounded-lg border border-amber-300 transition-colors cursor-pointer text-xs"
                 title="वापस सुपर एडमिन कंट्रोल रूम में लौटें"
               >
