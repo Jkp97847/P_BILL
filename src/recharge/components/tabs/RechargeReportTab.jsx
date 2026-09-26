@@ -24,7 +24,9 @@ export default function RechargeReportTab() {
 
   // Filter transactions
   const filteredList = useMemo(() => {
-    return transactions.filter(t => {
+    return (transactions || []).filter(t => {
+      if (!t) return false;
+
       // 1. Service Filter
       if (serviceFilter !== 'all' && t.serviceType !== serviceFilter) return false;
 
@@ -49,11 +51,11 @@ export default function RechargeReportTab() {
       // 3. Search Term
       if (searchTerm.trim()) {
         const q = searchTerm.toLowerCase().trim();
-        const matchId = t.id && t.id.toLowerCase().includes(q);
-        const matchName = t.customerName && t.customerName.toLowerCase().includes(q);
-        const matchNo = t.consumerNo && t.consumerNo.toLowerCase().includes(q);
-        const matchOp = t.operatorName && t.operatorName.toLowerCase().includes(q);
-        const matchSub = t.subDivision && t.subDivision.toLowerCase().includes(q);
+        const matchId = String(t.id || '').toLowerCase().includes(q);
+        const matchName = String(t.customerName || '').toLowerCase().includes(q);
+        const matchNo = String(t.consumerNo || '').toLowerCase().includes(q);
+        const matchOp = String(t.operatorName || '').toLowerCase().includes(q);
+        const matchSub = String(t.subDivision || '').toLowerCase().includes(q);
         if (!matchId && !matchName && !matchNo && !matchOp && !matchSub) return false;
       }
 

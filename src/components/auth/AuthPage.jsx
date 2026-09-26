@@ -757,11 +757,11 @@ export default function AuthPage() {
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 to-blue-600 text-white shadow-xl shadow-indigo-500/20 mb-3">
           <ReceiptText className="w-9 h-9" />
         </div>
-        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white uppercase">
-          Online Welcome to Smart Billing
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+          Welcome to the Smart Billing
         </h1>
         <p className="text-xs text-indigo-200 mt-1 font-medium">
-          ऑनलाइन वेलकम टू स्मार्ट बिलिंग • आधुनिक जीएसटी बिलिंग एवं स्टॉक मैनेजमेंट
+          वेलकम टू द स्मार्ट बिलिंग • आधुनिक जीएसटी बिलिंग एवं स्टॉक मैनेजमेंट
         </p>
       </div>
 
@@ -819,7 +819,7 @@ export default function AuthPage() {
             <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <div className="inline-block px-2.5 py-0.5 bg-indigo-50 border border-indigo-200 rounded-full text-[11px] font-bold text-indigo-700 mb-1">
-                  ✨ Online Welcome to Smart Billing
+                  ✨ Welcome to the Smart Billing
                 </div>
                 <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
                   <User className="w-5 h-5 text-indigo-600" />
