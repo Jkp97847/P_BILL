@@ -22,7 +22,7 @@ function NonGstMain() {
     if (currentRoute.module === 'nongst_billing' && currentRoute.tab && currentRoute.tab !== activeTab) {
       setActiveTab(currentRoute.tab);
     }
-  }, [currentRoute.module, currentRoute.tab, activeTab, setActiveTab]);
+  }, [currentRoute.module, currentRoute.tab]);
 
   const isConfigured = Boolean(settings?.isConfigured);
 
@@ -80,8 +80,7 @@ function NonGstMain() {
               city: settings.city,
               state: settings.state,
               phone: settings.mobile,
-              email: settings.email,
-              gstin: settings.gstin
+              email: settings.email
             }}
           />
         )}

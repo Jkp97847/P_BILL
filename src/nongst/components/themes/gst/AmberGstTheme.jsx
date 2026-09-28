@@ -1,6 +1,7 @@
 import React from 'react';
 import GaneshLogo from '../../GaneshLogo';
 import DigitalSignatureBadge from '../../DigitalSignatureBadge';
+import UpiQrCode from '../../common/UpiQrCode';
 import { numberToHindiWords, numberToIndianWords } from '../../../utils/numberToWords';
 
 export default function AmberGstTheme({ bill, settings }) {
@@ -60,7 +61,7 @@ export default function AmberGstTheme({ bill, settings }) {
       {/* 2. TITLE */}
       <div className="text-center my-1.5">
         <span className="inline-block bg-amber-800 text-white font-extrabold px-6 py-1 rounded-full text-xs uppercase tracking-widest shadow-xs">
-          🪙 GOLDEN AMBER INVOICE 🪙
+          🪙 GOLDEN AMBER RETAIL MEMO 🪙
         </span>
       </div>
 
@@ -76,13 +77,6 @@ export default function AmberGstTheme({ bill, settings }) {
         )}
         {disp.showAddress && currentSettings.address && (
           <p className="text-xs text-slate-700 mt-1 max-w-xl mx-auto">📍 {currentSettings.address}</p>
-        )}
-        {disp.showGstin && currentSettings.gstin && (
-          <div className="mt-1">
-            <span className="inline-block text-[10px] font-mono font-bold bg-white text-amber-950 px-2.5 py-0.5 rounded border border-amber-300 shadow-2xs">
-              GSTIN: {currentSettings.gstin}
-            </span>
-          </div>
         )}
       </div>
 
@@ -153,6 +147,38 @@ export default function AmberGstTheme({ bill, settings }) {
         <div className="bg-amber-50 border border-amber-300 rounded p-2 mb-3 text-xs flex items-center justify-between">
           <div><strong className="text-amber-950">शब्दों में: </strong><span>{numberToHindiWords(grandTotal)}</span></div>
           <div className="text-slate-600 text-[11px] italic">({numberToIndianWords(grandTotal)})</div>
+        </div>
+      )}
+
+      {/* 6.5 BANK DETAILS & UPI QR CODE */}
+      {((disp.showBankDetails !== false && currentSettings.bankName) || (disp.showUpiQr !== false && (currentSettings.upiId || currentSettings.mobile))) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3 items-center border border-amber-300 rounded-lg p-2.5 bg-amber-50/40">
+          {disp.showBankDetails !== false && currentSettings.bankName ? (
+            <div className="text-[10px] space-y-0.5">
+              <div className="font-bold text-amber-950 uppercase">🏦 बैंक खाता विवरण (Bank Details):</div>
+              <div className="text-[9.5px]">
+                बैंक: <span className="font-semibold text-slate-900">{currentSettings.bankName}</span>
+              </div>
+              <div className="text-[9.5px]">
+                खाता संख्या: <span className="font-mono font-bold text-slate-900">{currentSettings.accountNo}</span>
+              </div>
+              <div className="text-[9.5px]">
+                IFSC: <span className="font-mono font-bold text-slate-900">{currentSettings.ifsc}</span> {currentSettings.branch ? `| शाखा: ${currentSettings.branch}` : ''}
+              </div>
+            </div>
+          ) : <div />}
+
+          {disp.showUpiQr !== false && (currentSettings.upiId || currentSettings.mobile) && (
+            <div className="flex justify-end">
+              <UpiQrCode
+                upiId={currentSettings.upiId || (currentSettings.mobile ? `${currentSettings.mobile}@upi` : '')}
+                shopName={currentSettings.firmName}
+                amount={grandTotal}
+                billNo={bill.billNo}
+                size={66}
+              />
+            </div>
+          )}
         </div>
       )}
 

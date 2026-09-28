@@ -1,5 +1,6 @@
 import React from 'react';
 import { numberToIndianWords } from '../../utils/numberToWords';
+import UpiQrCode from '../../components/common/UpiQrCode';
 
 export default function RechargeReceiptSlip({ bill, settings, isPrintMode = false }) {
   if (!bill) return null;
@@ -209,18 +210,34 @@ export default function RechargeReceiptSlip({ bill, settings, isPrintMode = fals
           शब्दों में: <strong className="not-italic text-slate-950 font-bold">{words || 'Zero Rupees Only'}</strong>
         </div>
 
-        {/* Shop Bank Details Box (if enabled) */}
-        {settings?.showBankOnSlip !== false && (settings?.bankName || settings?.accountNumber) && (
-          <div className="bg-slate-50 border border-slate-300 rounded p-2 mb-2.5 text-[11px]">
-            <div className="flex justify-between items-center font-bold text-blue-900 mb-1 border-b border-slate-200 pb-0.5">
-              <span>दुकानदार अधिकृत बैंक खाता:</span>
-              <span className="text-emerald-700 text-[10px]">✔ Verified</span>
+        {/* Shop Bank Details & UPI QR Box (if enabled) */}
+        {((settings?.showBankOnSlip !== false && (settings?.bankName || settings?.accountNumber)) || (settings?.showQrCodeOnSlip !== false && (settings?.upiId || shopPhone))) && (
+          <div className="bg-slate-50 border border-slate-300 rounded p-2.5 mb-2.5 text-[11px]">
+            <div className="flex justify-between items-center font-bold text-blue-900 mb-1.5 border-b border-slate-200 pb-1">
+              <span>दुकानदार अधिकृत बैंक खाता & UPI भुगता‍न:</span>
+              <span className="text-emerald-700 text-[10px]">✔ Verified Merchant</span>
             </div>
-            <div className="grid grid-cols-2 gap-1 text-slate-700 font-mono">
-              <div>बैंक: <strong>{settings.bankName || 'SBI'}</strong></div>
-              <div>IFSC: <strong>{settings.ifscCode || '—'}</strong></div>
-              <div className="col-span-2">खाता संख्या: <strong>{settings.accountNumber || '—'}</strong></div>
-              {settings.upiId && <div className="col-span-2">UPI ID: <strong>{settings.upiId}</strong></div>}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+              {settings?.showBankOnSlip !== false && (settings?.bankName || settings?.accountNumber) ? (
+                <div className="space-y-0.5 text-slate-700 text-[10px] w-full">
+                  <div>बैंक: <strong className="text-slate-900">{settings.bankName || 'SBI'}</strong></div>
+                  <div>खाता संख्या: <strong className="font-mono text-slate-900">{settings.accountNumber || '—'}</strong></div>
+                  <div>IFSC: <strong className="font-mono text-slate-900">{settings.ifscCode || '—'}</strong></div>
+                  {settings.upiId && <div>UPI ID: <strong className="font-mono text-slate-900">{settings.upiId}</strong></div>}
+                </div>
+              ) : <div />}
+
+              {settings?.showQrCodeOnSlip !== false && (settings?.upiId || shopPhone) && (
+                <div className="shrink-0 flex justify-end">
+                  <UpiQrCode
+                    upiId={settings.upiId || (shopPhone ? `${shopPhone}@upi` : '')}
+                    shopName={shopName}
+                    amount={totalAmt}
+                    billNo={bill.id}
+                    size={64}
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}

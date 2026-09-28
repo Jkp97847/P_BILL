@@ -60,7 +60,7 @@ export default function RoyalGstTheme({ bill, settings }) {
       {/* Invoice Banner */}
       <div className="text-center my-1">
         <span className="inline-block bg-purple-900 text-amber-300 font-sans font-bold px-6 py-1 rounded-full text-xs uppercase tracking-wider shadow-xs">
-          👑 SHOWROOM GST TAX INVOICE (मूल प्रति / ORIGINAL)
+          👑 SHOWROOM RETAIL CASH MEMO (मूल प्रति / ORIGINAL)
         </span>
       </div>
 
@@ -77,21 +77,6 @@ export default function RoyalGstTheme({ bill, settings }) {
         {disp.showAddress && currentSettings.address && (
           <p className="text-[11px] text-slate-600 font-sans mt-0.5">📍 {currentSettings.address}</p>
         )}
-        <div className="flex flex-wrap justify-center gap-4 mt-2 pt-1 border-t border-purple-200 text-[11px] font-sans font-bold">
-          {disp.showGstin && currentSettings.gstin && (
-            <span className="bg-purple-50 text-purple-950 px-2 py-0.5 rounded border border-purple-200">
-              GSTIN: <span className="font-mono">{currentSettings.gstin}</span>
-            </span>
-          )}
-          {disp.showPan && currentSettings.pan && (
-            <span className="bg-purple-50 text-purple-950 px-2 py-0.5 rounded border border-purple-200">
-              PAN: <span className="font-mono">{currentSettings.pan}</span>
-            </span>
-          )}
-          {disp.showState && (
-            <span className="text-slate-700">राज्य: {currentSettings.state || 'Rajasthan'} ({currentSettings.stateCode || '08'})</span>
-          )}
-        </div>
       </div>
 
       {/* 2. CUSTOMER & INVOICE DETAILS */}
@@ -101,9 +86,6 @@ export default function RoyalGstTheme({ bill, settings }) {
           <div className="font-black text-sm text-slate-900">{bill.customerName || 'Cash Customer'}</div>
           {disp.showCustomerDetails && bill.customerMobile && (
             <div>📞 मोबाइल: <span className="font-mono font-bold">{bill.customerMobile}</span></div>
-          )}
-          {disp.showCustomerDetails && bill.customerGstin && (
-            <div className="font-bold">GSTIN: <span className="font-mono">{bill.customerGstin}</span></div>
           )}
           {disp.showCustomerDetails && bill.customerAddress && (
             <div className="text-slate-600 text-[10px]">पता: {bill.customerAddress}</div>
@@ -134,16 +116,9 @@ export default function RoyalGstTheme({ bill, settings }) {
               <th className="py-1.5 px-1 border-r border-purple-800 w-8">क्र.</th>
               <th className="py-1.5 px-3 border-r border-purple-800 text-left">सामान / मॉडल विवरण</th>
               {disp.showHsn && <th className="py-1.5 px-1 border-r border-purple-800 w-14">HSN</th>}
-              <th className="py-1.5 px-1 border-r border-purple-800 w-10">मात्रा</th>
-              <th className="py-1.5 px-1 border-r border-purple-800 w-14 text-right">दर (₹)</th>
-              <th className="py-1.5 px-1 border-r border-purple-800 w-16 text-right">टैक्सेबल</th>
-              {disp.showTaxBreakup && (
-                <>
-                  <th className="py-1.5 px-1 border-r border-purple-800 w-14 text-right">CGST</th>
-                  <th className="py-1.5 px-1 border-r border-purple-800 w-14 text-right">SGST</th>
-                </>
-              )}
-              <th className="py-1.5 px-2 text-right w-20">कुल रकम (₹)</th>
+              <th className="py-1.5 px-1 border-r border-purple-800 w-12">मात्रा</th>
+              <th className="py-1.5 px-1 border-r border-purple-800 w-16 text-right">दर / रेट (₹)</th>
+              <th className="py-1.5 px-2 text-right w-24">कुल रकम (₹)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-purple-100">
@@ -189,21 +164,8 @@ export default function RoyalGstTheme({ bill, settings }) {
                     {isFilled ? `${item.qty} ${item.unit || 'PCS'}` : ''}
                   </td>
                   <td className="text-right font-mono border-r border-purple-100 px-1 py-1.5 align-top whitespace-nowrap">
-                    {isFilled ? Number(item.rate || 0).toFixed(2) : ''}
+                    {isFilled ? Number(item.rate || item.price || 0).toFixed(2) : ''}
                   </td>
-                  <td className="text-right font-mono border-r border-purple-100 px-1 py-1.5 align-top whitespace-nowrap">
-                    {isFilled ? Number(item.taxableAmount || item.total || 0).toFixed(2) : ''}
-                  </td>
-                  {disp.showTaxBreakup && (
-                    <>
-                      <td className="text-right font-mono border-r border-purple-100 px-1 py-1.5 text-[10px] align-top whitespace-nowrap">
-                        {isFilled && item.cgstAmount ? `${Number(item.cgstAmount).toFixed(2)}` : ''}
-                      </td>
-                      <td className="text-right font-mono border-r border-purple-100 px-1 py-1.5 text-[10px] align-top whitespace-nowrap">
-                        {isFilled && item.sgstAmount ? `${Number(item.sgstAmount).toFixed(2)}` : ''}
-                      </td>
-                    </>
-                  )}
                   <td className="text-right font-mono font-bold px-2 py-1.5 text-purple-950 align-top whitespace-nowrap">
                     {isFilled ? Number(item.total || 0).toFixed(2) : ''}
                   </td>
@@ -226,20 +188,9 @@ export default function RoyalGstTheme({ bill, settings }) {
               <td className="text-center border-r border-purple-200 font-bold align-top py-2 whitespace-nowrap">
                 {items.reduce((sum, it) => sum + (Number(it.qty) || 0), 0)} PCS
               </td>
-              <td className="border-r border-purple-200"></td>
-              <td className="text-right font-mono border-r border-purple-200 px-1 align-top py-2 whitespace-nowrap">
-                ₹{Number(bill.taxableTotal || 0).toFixed(2)}
+              <td className="text-right px-2 py-2 font-bold text-purple-950 uppercase">
+                कुल राशि:
               </td>
-              {disp.showTaxBreakup && (
-                <>
-                  <td className="text-right font-mono border-r border-purple-200 px-1 text-[10px] align-top py-2 whitespace-nowrap">
-                    ₹{Number(bill.cgstTotal || 0).toFixed(2)}
-                  </td>
-                  <td className="text-right font-mono border-r border-purple-200 px-1 text-[10px] align-top py-2 whitespace-nowrap">
-                    ₹{Number(bill.sgstTotal || 0).toFixed(2)}
-                  </td>
-                </>
-              )}
               <td className="text-right font-mono font-black px-2 text-sm text-purple-950 align-top py-2 whitespace-nowrap">
                 ₹{grandTotal.toFixed(2)}
               </td>
@@ -278,23 +229,19 @@ export default function RoyalGstTheme({ bill, settings }) {
         </div>
 
         <div className="border-2 border-purple-900 rounded p-2.5 bg-gradient-to-br from-purple-50 to-amber-50/40 flex flex-col justify-between">
-          <div className="space-y-1 text-[11px]">
+          <div className="space-y-1.5 text-[11px]">
             <div className="flex justify-between text-slate-700">
-              <span>कर योग्य मूल्य:</span>
-              <span className="font-mono font-bold">₹{Number(bill.taxableTotal || 0).toFixed(2)}</span>
+              <span>कुल आइटम (Items):</span>
+              <span className="font-mono font-bold text-slate-900">{items.length} आइटम</span>
             </div>
-            {disp.showTaxBreakup && (
-              <>
-                <div className="flex justify-between text-slate-700">
-                  <span>CGST:</span>
-                  <span className="font-mono">₹{Number(bill.cgstTotal || 0).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-slate-700">
-                  <span>SGST:</span>
-                  <span className="font-mono">₹{Number(bill.sgstTotal || 0).toFixed(2)}</span>
-                </div>
-              </>
-            )}
+            <div className="flex justify-between text-slate-700">
+              <span>कुल मात्रा (Total Qty):</span>
+              <span className="font-mono font-bold text-slate-900">{items.reduce((s, it) => s + (Number(it.qty) || 0), 0)} PCS</span>
+            </div>
+            <div className="flex justify-between text-slate-700">
+              <span>भुगतान माध्यम:</span>
+              <span className="font-semibold text-purple-900">{bill.paymentMode || 'Cash / UPI'}</span>
+            </div>
           </div>
 
           <div className="mt-2 pt-2 border-t border-purple-300 flex justify-between items-center bg-purple-950 text-white p-2 rounded">

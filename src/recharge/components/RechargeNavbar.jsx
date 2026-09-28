@@ -79,11 +79,6 @@ export default function RechargeNavbar({ activeTab, setActiveTab, onBackToHub })
                 <span className={`font-semibold ${isSuperAdmin ? 'text-amber-400' : 'text-emerald-400'}`}>
                   {roleName}
                 </span>
-                {effectiveSeller?.profile?.gstin && (
-                  <span className="text-[9px] text-slate-400 border-l border-slate-700 pl-1 font-mono">
-                    GSTIN: {effectiveSeller.profile.gstin.slice(0, 4)}...
-                  </span>
-                )}
               </div>
             </div>
           </div>

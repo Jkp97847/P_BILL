@@ -62,7 +62,7 @@ export default function MinimalistGstTheme({ bill, settings }) {
 
       {/* Invoice Title */}
       <div className="text-center my-1 border-y border-black py-0.5 font-mono text-[11px] font-black tracking-widest uppercase">
-        TAX INVOICE / कर बीजक (मूल प्रति / ORIGINAL)
+        RETAIL CASH MEMO / खुदरा बिल (मूल प्रति / ORIGINAL)
       </div>
 
       {/* Firm Info */}
@@ -78,23 +78,6 @@ export default function MinimalistGstTheme({ bill, settings }) {
         {disp.showAddress && currentSettings.address && (
           <p className="text-[11px] text-black font-normal mt-0.5">📍 {currentSettings.address}</p>
         )}
-        <div className="flex flex-wrap items-center justify-center gap-4 mt-1.5 text-[11px] font-bold">
-          {disp.showGstin && currentSettings.gstin && (
-            <span className="border border-black px-2 py-0.5 font-mono">
-              GSTIN: {currentSettings.gstin}
-            </span>
-          )}
-          {disp.showPan && currentSettings.pan && (
-            <span className="border border-black px-2 py-0.5 font-mono">
-              PAN: {currentSettings.pan}
-            </span>
-          )}
-          {disp.showState && currentSettings.state && (
-            <span>
-              राज्य: {currentSettings.state} ({currentSettings.stateCode || '08'})
-            </span>
-          )}
-        </div>
       </div>
 
       {/* 2. BUYER & INVOICE META */}
@@ -108,9 +91,6 @@ export default function MinimalistGstTheme({ bill, settings }) {
           </div>
           {disp.showCustomerDetails && bill.customerMobile && (
             <div>📞 मोबाइल: <span className="font-mono font-bold">{bill.customerMobile}</span></div>
-          )}
-          {disp.showCustomerDetails && bill.customerGstin && (
-            <div className="font-bold">GSTIN: <span className="font-mono">{bill.customerGstin}</span></div>
           )}
           {disp.showCustomerDetails && bill.customerAddress && (
             <div className="text-black/80">पता: {bill.customerAddress}</div>
@@ -141,16 +121,9 @@ export default function MinimalistGstTheme({ bill, settings }) {
               <th className="py-1 px-1 border-r border-white/30 w-8">#</th>
               <th className="py-1 px-2 border-r border-white/30 text-left">सामान / विवरण (Description)</th>
               {disp.showHsn && <th className="py-1 px-1 border-r border-white/30 w-14">HSN</th>}
-              <th className="py-1 px-1 border-r border-white/30 w-10">मात्रा</th>
-              <th className="py-1 px-1 border-r border-white/30 w-14 text-right">दर (₹)</th>
-              <th className="py-1 px-1 border-r border-white/30 w-16 text-right">टैक्सेबल</th>
-              {disp.showTaxBreakup && (
-                <>
-                  <th className="py-1 px-1 border-r border-white/30 w-14 text-right">CGST</th>
-                  <th className="py-1 px-1 border-r border-white/30 w-14 text-right">SGST</th>
-                </>
-              )}
-              <th className="py-1 px-2 text-right w-20">कुल (₹)</th>
+              <th className="py-1 px-1 border-r border-white/30 w-12">मात्रा</th>
+              <th className="py-1 px-1 border-r border-white/30 w-16 text-right">दर / रेट (₹)</th>
+              <th className="py-1 px-2 text-right w-24">कुल रकम (₹)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-black/20 text-[11px]">
@@ -191,31 +164,8 @@ export default function MinimalistGstTheme({ bill, settings }) {
                     {isFilled ? `${item.qty} ${item.unit || 'PCS'}` : ''}
                   </td>
                   <td className="text-right font-mono border-r border-black/20 px-1 py-1.5 align-top">
-                    {isFilled ? Number(item.rate || 0).toFixed(2) : ''}
+                    {isFilled ? Number(item.rate || item.price || 0).toFixed(2) : ''}
                   </td>
-                  <td className="text-right font-mono border-r border-black/20 px-1 py-1.5 align-top">
-                    {isFilled ? Number(item.taxableAmount || item.total || 0).toFixed(2) : ''}
-                  </td>
-                  {disp.showTaxBreakup && (
-                    <>
-                      <td className="text-right font-mono border-r border-black/20 px-1 py-1.5 text-[10px] align-top">
-                        {isFilled ? (
-                          <div>
-                            <div>₹{Number(item.cgstAmount || 0).toFixed(2)}</div>
-                            <div className="text-[9px] text-black/60">@{Number(item.gstRate || 0) / 2}%</div>
-                          </div>
-                        ) : ''}
-                      </td>
-                      <td className="text-right font-mono border-r border-black/20 px-1 py-1.5 text-[10px] align-top">
-                        {isFilled ? (
-                          <div>
-                            <div>₹{Number(item.sgstAmount || 0).toFixed(2)}</div>
-                            <div className="text-[9px] text-black/60">@{Number(item.gstRate || 0) / 2}%</div>
-                          </div>
-                        ) : ''}
-                      </td>
-                    </>
-                  )}
                   <td className="text-right font-mono font-bold px-2 py-1.5 align-top">
                     {isFilled ? Number(item.total || 0).toFixed(2) : ''}
                   </td>
@@ -233,22 +183,11 @@ export default function MinimalistGstTheme({ bill, settings }) {
                 )}
               </td>
               <td className="text-center font-bold px-1 py-2 font-mono">
-                {items.reduce((s, it) => s + (Number(it.qty) || 0), 0)}
+                {items.reduce((s, it) => s + (Number(it.qty) || 0), 0)} PCS
               </td>
-              <td className="text-right px-1 py-2 font-mono text-[10px] text-black/60">योग:</td>
-              <td className="text-right font-mono px-1 py-2">
-                ₹{Number(bill.taxableTotal || 0).toFixed(2)}
+              <td className="text-right px-2 py-2 font-bold text-black uppercase">
+                कुल राशि:
               </td>
-              {disp.showTaxBreakup && (
-                <>
-                  <td className="text-right font-mono px-1 py-2 text-[10px]">
-                    ₹{Number(bill.cgstTotal || 0).toFixed(2)}
-                  </td>
-                  <td className="text-right font-mono px-1 py-2 text-[10px]">
-                    ₹{Number(bill.sgstTotal || 0).toFixed(2)}
-                  </td>
-                </>
-              )}
               <td className="text-right font-mono font-black text-sm px-2 py-2">
                 ₹{grandTotal.toFixed(2)}
               </td>

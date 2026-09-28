@@ -10,7 +10,11 @@ const DEFAULT_SETTINGS = {
   mobile: '9876543210',
   alternateMobile: '9123456789',
   email: 'shreeganesh@example.com',
-  gstin: '08AAAAA0000A1Z5',
+  bankName: 'भारतीय स्टेट बैंक (SBI)',
+  accountNo: '38920192847',
+  ifsc: 'SBIN0031245',
+  branch: 'स्टेशन रोड शाखा',
+  upiId: 'shreeganesh@upi',
   logo: '',
   showGaneshLogo: true,
   ganeshText: '॥ श्री गणेशाय नमः ॥',
@@ -33,7 +37,8 @@ const DEFAULT_SETTINGS = {
     showMobile: true,
     showAlternateMobile: true,
     showEmail: true,
-    showGstin: true,
+    showBankDetails: true,
+    showUpiQr: true,
     showGaneshLogo: true,
     showTerms: true,
     showSignatory: true,
@@ -122,7 +127,6 @@ export function BillingProvider({ children }) {
         alternateMobile: '',
         address: '',
         email: '',
-        gstin: '',
         bankName: '',
         accountNo: '',
         ifsc: '',
@@ -313,7 +317,7 @@ export function BillingProvider({ children }) {
     setPrintDocument({ type: 'bill', bill });
     setTimeout(() => {
       window.print();
-    }, 150);
+    }, 250);
   };
 
   // Trigger Print for Report (All bills or Financial Year)

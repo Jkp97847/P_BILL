@@ -59,7 +59,6 @@ export function RechargeProvider({ children }) {
         accountNumber: '61098663856',
         ifscCode: 'SBIN0031338',
         upiId: '9784730824@upi',
-        gstin: '',
         feeRuleType: 'slab',     // 'slab' | 'flat' | 'percent'
         feeSlabUnit: 1000,       // ₹1000
         feePerSlab: 5,           // ₹5 per ₹1000
@@ -67,6 +66,7 @@ export function RechargeProvider({ children }) {
         percentFeeRate: 1,
         paperSize: 'thermal80',  // 'thermal80' | 'thermal58' | 'a4'
         showBankOnSlip: true,
+        showQrCodeOnSlip: true,
         showStampOnSlip: true,
         footerNote: 'यह एक कंप्यूटरीकृत सत्यापित रसीद है। लेन-देन सफलतापूर्वक संपन्न हुआ।',
         isConfigured: true
@@ -82,7 +82,6 @@ export function RechargeProvider({ children }) {
       accountNumber: '',
       ifscCode: '',
       upiId: '',
-      gstin: '',
       feeRuleType: 'slab',
       feeSlabUnit: 1000,
       feePerSlab: 5,
@@ -90,6 +89,7 @@ export function RechargeProvider({ children }) {
       percentFeeRate: 1,
       paperSize: 'thermal80',
       showBankOnSlip: true,
+      showQrCodeOnSlip: true,
       showStampOnSlip: true,
       footerNote: 'यह एक कंप्यूटरीकृत सत्यापित रसीद है। लेन-देन सफलतापूर्वक संपन्न हुआ।',
       isConfigured: false
@@ -169,8 +169,7 @@ export function RechargeProvider({ children }) {
       const updated = {
         ...prev,
         ...newSettings,
-        isConfigured: newSettings.isConfigured !== undefined ? Boolean(newSettings.isConfigured) : prev.isConfigured,
-        gstin: effectiveSeller?.profile?.gstin || prev.gstin || ''
+        isConfigured: newSettings.isConfigured !== undefined ? Boolean(newSettings.isConfigured) : prev.isConfigured
       };
       try {
         localStorage.setItem(storageKeySettings, JSON.stringify(updated));

@@ -24,21 +24,22 @@ import {
   Mail,
   Palette,
   Sparkles,
-  Lock
+  CreditCard
 } from 'lucide-react';
 import {
   formatMobileInput,
   validateMobile,
   formatEmailInput,
   validateEmail,
-  formatGstinInput,
-  validateGstin
+  formatAccountNoInput,
+  formatIfscInput,
+  formatUpiInput
 } from '../../../utils/validation';
 
 const THEME_OPTIONS = [
   {
     id: 'classic',
-    name: '1. क्लासिक जीएसटी',
+    name: '1. क्लासिक नॉन-जीएसटी',
     badge: 'Classic Slate',
     tag: 'पारंपरिक एवं स्टैंडर्ड व्यापारिक बिल',
     border: 'border-slate-800',
@@ -127,7 +128,11 @@ export default function FormatEditTab() {
     ...settings,
     selectedTheme: settings.selectedTheme || 'classic',
     ownerName: settings.ownerName || 'राजेश कुमार (प्रोपराइटर)',
-    signatoryText: settings.signatoryText || 'अधिकृत हस्ताक्षरकर्ता / Authorized Signatory',
+    bankName: settings.bankName || '',
+    accountNo: settings.accountNo || '',
+    ifsc: settings.ifsc || '',
+    branch: settings.branch || '',
+    upiId: settings.upiId || '',
     displayOptions: {
       showFirmName: true,
       showTagline: true,
@@ -136,7 +141,8 @@ export default function FormatEditTab() {
       showMobile: true,
       showAlternateMobile: true,
       showEmail: true,
-      showGstin: true,
+      showBankDetails: true,
+      showUpiQr: true,
       showGaneshLogo: true,
       showTerms: true,
       showSignatory: true,
@@ -254,16 +260,6 @@ export default function FormatEditTab() {
       }
     }
 
-    // 4. GSTIN validation (if provided)
-    if (formData.gstin && formData.gstin.trim()) {
-      const gstRes = validateGstin(formData.gstin, false);
-      if (!gstRes.isValid) {
-        showToast('error', gstRes.error, 'GSTIN त्रुटि');
-        setNotification(`⚠️ ${gstRes.error}`);
-        setTimeout(() => setNotification(null), 5000);
-        return;
-      }
-    }
 
     updateSettings(formData);
     showToast('success', 'बिल फॉर्मेट और फर्म सेटिंग्स सफलतापूर्वक सेव कर ली गईं!', 'सेटिंग्स सुरक्षित');
@@ -583,16 +579,29 @@ export default function FormatEditTab() {
               </span>
             </label>
 
-            {/* Show GSTIN */}
-            <label className="flex items-center gap-3 p-3 bg-slate-50 hover:bg-indigo-50/50 rounded-lg border border-slate-200 cursor-pointer transition-colors">
+            {/* Show Bank Details */}
+            <label className="flex items-center gap-3 p-3 bg-emerald-50/70 hover:bg-emerald-100/60 rounded-lg border border-emerald-300 cursor-pointer transition-colors">
               <input
                 type="checkbox"
-                checked={disp.showGstin}
-                onChange={() => handleDisplayToggle('showGstin')}
+                checked={disp.showBankDetails !== false}
+                onChange={() => handleDisplayToggle('showBankDetails')}
+                className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 cursor-pointer"
+              />
+              <span className="text-xs font-bold text-slate-800">
+                🏦 बैंक खाता विवरण (Show Bank Details)
+              </span>
+            </label>
+
+            {/* Show UPI QR Code */}
+            <label className="flex items-center gap-3 p-3 bg-indigo-50/70 hover:bg-indigo-100/60 rounded-lg border border-indigo-300 cursor-pointer transition-colors">
+              <input
+                type="checkbox"
+                checked={disp.showUpiQr !== false}
+                onChange={() => handleDisplayToggle('showUpiQr')}
                 className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
               />
               <span className="text-xs font-bold text-slate-800">
-                📑 GSTIN / पैन नंबर
+                📱 UPI QR कोड (Show UPI QR Code)
               </span>
             </label>
 
@@ -816,26 +825,77 @@ export default function FormatEditTab() {
                   />
                 </div>
 
+                {/* Bank Name */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-                    <span>GSTIN नं. (केवल देखने हेतु)</span>
-                    <span className="text-[10px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-300 font-semibold flex items-center gap-1">
-                      <Lock className="w-2.5 h-2.5 text-slate-500" />
-                      <span>Disable / No Change</span>
-                    </span>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    🏦 बैंक का नाम (Bank Name)
                   </label>
                   <input
                     type="text"
-                    disabled={true}
-                    readOnly={true}
-                    value={formData.gstin || ''}
-                    placeholder="Tab 1 GST से निर्धारित"
-                    className="w-full text-sm font-mono bg-slate-100 text-slate-600 border border-slate-300 rounded-lg px-3 py-2 cursor-not-allowed uppercase font-semibold select-none shadow-inner"
+                    value={formData.bankName || ''}
+                    onChange={(e) => handleChange('bankName', e.target.value)}
+                    placeholder="उदा. भारतीय स्टेट बैंक (SBI)"
+                    className="w-full text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   />
-                  <p className="text-[11px] text-slate-500 font-medium mt-1 flex items-center gap-1">
-                    <Lock className="w-3 h-3 text-slate-400 shrink-0" />
-                    <span>केवल देखने हेतु: इसमें बदलाव केवल Tab 1 (GST बिलिंग सेटिंग्स) से संभव है।</span>
-                  </p>
+                </div>
+
+                {/* Account Number */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    💳 खाता संख्या (Account Number)
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={18}
+                    value={formData.accountNo || ''}
+                    onChange={(e) => handleChange('accountNo', formatAccountNoInput(e.target.value))}
+                    placeholder="उदा. 38920192847"
+                    className="w-full text-sm font-mono font-bold bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* IFSC Code */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    🏛️ IFSC कोड
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={11}
+                    value={formData.ifsc || ''}
+                    onChange={(e) => handleChange('ifsc', formatIfscInput(e.target.value))}
+                    placeholder="उदा. SBIN0031245"
+                    className="w-full text-sm font-mono uppercase bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Branch */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    📍 बैंक शाखा (Branch)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.branch || ''}
+                    onChange={(e) => handleChange('branch', e.target.value)}
+                    placeholder="उदा. स्टेशन रोड शाखा"
+                    className="w-full text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* UPI ID */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    📱 UPI आईडी (Google Pay / PhonePe / Paytm)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.upiId || ''}
+                    onChange={(e) => handleChange('upiId', formatUpiInput(e.target.value))}
+                    placeholder="उदा. yourname@upi"
+                    className="w-full text-sm font-mono bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
                 </div>
               </div>
             </div>

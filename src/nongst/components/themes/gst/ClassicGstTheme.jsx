@@ -71,14 +71,14 @@ export default function ClassicGstTheme({ bill, settings }) {
         </div>
       </div>
 
-      {/* 2. TITLE: CASH MEMO / TAX INVOICE */}
+      {/* 2. TITLE: CASH MEMO */}
       <div className="text-center my-1.5">
         <span className="inline-block border-2 border-slate-900 font-black px-6 py-0.5 text-xs sm:text-sm uppercase bg-slate-100 tracking-widest rounded">
-          ॥ कॅश मेमो / TAX INVOICE ॥
+          ॥ कॅश मेमो / RETAIL CASH MEMO ॥
         </span>
       </div>
 
-      {/* 3. SHOP / FIRM NAME, TAGLINE, ADDRESS & GSTIN */}
+      {/* 3. SHOP / FIRM NAME, TAGLINE & ADDRESS */}
       <div className="text-center border-b-2 border-slate-900 pb-2 mb-3">
         {disp.showFirmName && (
           <h1 className="text-2xl sm:text-4xl font-black uppercase tracking-tight text-slate-900 leading-tight">
@@ -94,13 +94,6 @@ export default function ClassicGstTheme({ bill, settings }) {
           <p className="text-xs text-slate-700 mt-1 max-w-xl mx-auto">
             <span className="font-semibold text-slate-800">पता:</span> {currentSettings.address}
           </p>
-        )}
-        {disp.showGstin && currentSettings.gstin && (
-          <div className="mt-1">
-            <span className="inline-block text-[10px] font-mono font-bold bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-300">
-              GSTIN: {currentSettings.gstin}
-            </span>
-          </div>
         )}
       </div>
 
@@ -195,6 +188,38 @@ export default function ClassicGstTheme({ bill, settings }) {
             <span className="font-semibold text-slate-800">{numberToHindiWords(grandTotal)}</span>
           </div>
           <div className="text-slate-600 text-[11px] italic">({numberToIndianWords(grandTotal)})</div>
+        </div>
+      )}
+
+      {/* 6.5 BANK DETAILS & UPI QR CODE */}
+      {((disp.showBankDetails !== false && currentSettings.bankName) || (disp.showUpiQr !== false && (currentSettings.upiId || currentSettings.mobile))) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3 items-center border border-slate-300 rounded p-2 bg-slate-50/60">
+          {disp.showBankDetails !== false && currentSettings.bankName ? (
+            <div className="text-[10px] space-y-0.5">
+              <div className="font-bold text-slate-900 uppercase">🏦 बैंक खाता विवरण (Bank Details):</div>
+              <div className="text-[9.5px]">
+                बैंक: <span className="font-semibold text-slate-900">{currentSettings.bankName}</span>
+              </div>
+              <div className="text-[9.5px]">
+                खाता संख्या: <span className="font-mono font-bold text-slate-900">{currentSettings.accountNo}</span>
+              </div>
+              <div className="text-[9.5px]">
+                IFSC: <span className="font-mono font-bold text-slate-900">{currentSettings.ifsc}</span> {currentSettings.branch ? `| शाखा: ${currentSettings.branch}` : ''}
+              </div>
+            </div>
+          ) : <div />}
+
+          {disp.showUpiQr !== false && (currentSettings.upiId || currentSettings.mobile) && (
+            <div className="flex justify-end">
+              <UpiQrCode
+                upiId={currentSettings.upiId || (currentSettings.mobile ? `${currentSettings.mobile}@upi` : '')}
+                shopName={currentSettings.firmName}
+                amount={grandTotal}
+                billNo={bill.billNo}
+                size={66}
+              />
+            </div>
+          )}
         </div>
       )}
 

@@ -24,8 +24,10 @@ import {
   getCurrentFinancialYear, 
   isDateInFinancialYear 
 } from '../../../utils/financialYear';
+import { useNavigationHistory } from '../../../context/NavigationHistoryContext';
 
 export default function ReportTab() {
+  const { navigate } = useNavigationHistory();
   const {
     bills,
     settings,
@@ -36,6 +38,12 @@ export default function ReportTab() {
     exportUserData,
     importUserData
   } = useBilling();
+
+  const handleEditBill = (bill) => {
+    startEditingBill(bill);
+    setPrintModalBill(null);
+    navigate({ module: 'nongst_billing', tab: 'generate' });
+  };
 
   const { showToast } = useToast();
 
@@ -496,7 +504,7 @@ export default function ReportTab() {
 
                         {/* Edit Button */}
                         <button
-                          onClick={() => startEditingBill(bill)}
+                          onClick={() => handleEditBill(bill)}
                           className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md font-bold text-xs flex items-center gap-1 transition-colors border border-blue-200 cursor-pointer"
                           title="बिल में संशोधन करें (Edit)"
                         >
@@ -565,6 +573,14 @@ export default function ReportTab() {
                 </h4>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleEditBill(printModalBill)}
+                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-colors"
+                  title="इस बिल को संशोधित / एडिट करें"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  <span>बिल एडिट करें</span>
+                </button>
                 <button
                   onClick={() => triggerPrint(printModalBill)}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-md cursor-pointer"
