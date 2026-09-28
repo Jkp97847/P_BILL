@@ -26,8 +26,10 @@ import {
   getCurrentFinancialYear, 
   isDateInFinancialYear 
 } from '../../utils/financialYear';
+import { useNavigationHistory } from '../../context/NavigationHistoryContext';
 
 export default function ReportTab() {
+  const { navigate } = useNavigationHistory();
   const {
     gstBills,
     purchases,
@@ -42,6 +44,12 @@ export default function ReportTab() {
     exportData,
     importData
   } = useBilling();
+
+  const handleEditBill = (bill) => {
+    startEditingBill(bill);
+    setPreviewBill(null);
+    navigate({ module: 'gst_billing', tab: 'generate' });
+  };
 
   // Active Report View: 'sales' | 'purchases'
   const [reportType, setReportType] = useState('sales');
@@ -594,7 +602,7 @@ export default function ReportTab() {
                           {/* Edit */}
                           <button
                             type="button"
-                            onClick={() => startEditingBill(bill)}
+                            onClick={() => handleEditBill(bill)}
                             className="p-1.5 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg cursor-pointer"
                             title="एडिट करें (Edit)"
                           >
@@ -747,6 +755,15 @@ export default function ReportTab() {
                 जीएसटी बिल प्रीव्यू: {previewBill.billNo}
               </h3>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleEditBill(previewBill)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg cursor-pointer shadow-xs transition-colors"
+                  title="इस बिल को संशोधित / एडिट करें"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  <span>बिल एडिट करें</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => triggerPrint(previewBill)}

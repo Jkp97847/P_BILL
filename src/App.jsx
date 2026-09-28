@@ -32,7 +32,7 @@ function MainApp() {
     if (currentRoute.module === 'gst_billing' && currentRoute.tab && currentRoute.tab !== activeTab) {
       setActiveTab(currentRoute.tab);
     }
-  }, [currentRoute.module, currentRoute.tab, activeTab, setActiveTab]);
+  }, [currentRoute.module, currentRoute.tab]);
 
   const handleSaveFirstTimeGst = (newSettings) => {
     updateSettings({
