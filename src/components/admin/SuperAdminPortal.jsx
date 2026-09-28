@@ -763,8 +763,8 @@ export default function SuperAdminPortal() {
             {/* Platform Master Credentials Info */}
             <div className="bg-purple-50 border border-purple-200 p-4 rounded-xl text-xs space-y-2 text-purple-950">
               <span className="font-bold block text-purple-900">👑 सुपर एडमिन क्रेडेंशियल्स:</span>
-              <div className="font-mono">यूजरनेम: <strong className="text-slate-900">superadmin</strong></div>
-              <div className="font-mono">डिफ़ॉल्ट पासवर्ड: <strong className="text-slate-900">Admin@123456</strong></div>
+              <div className="font-mono">यूजरनेम: <strong className="text-slate-900">jkp97847</strong></div>
+              <div className="font-mono">मास्टर पासवर्ड: <strong className="text-slate-900 tracking-widest font-bold">••••••••</strong> <span className="text-slate-500 text-[10px] font-sans font-medium">(सुरक्षित एवं गोपनीय)</span></div>
               <p className="text-[10px] text-slate-500 pt-1 border-t border-purple-200 mt-1">
                 सुरक्षा हेतु यह पासवर्ड कभी किसी सामान्य सेलर से साझा न करें।
               </p>

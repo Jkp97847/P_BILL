@@ -16,7 +16,7 @@ const INITIAL_USERS = [
   {
     id: 'superadmin_1',
     username: 'jkp97847',
-    password: 'jkp97847',
+    password: 'Jkp@97847',
     role: 'superadmin',
     status: 'approved', // 'approved' | 'pending' | 'disabled'
     createdAt: '2026-09-01T10:00:00.000Z',
@@ -81,12 +81,13 @@ export function AuthProvider({ children }) {
             status: u.username.toLowerCase() === 'seller1' ? 'approved' : (u.status || 'approved'),
             allowedModules: u.allowedModules || { ...DEFAULT_MODULE_PERMISSIONS }
           }));
-          // Ensure jkp97847 exists with password jkp97847 and superadmin role
-          const adminIdx = combined.findIndex(u => u.username.toLowerCase() === 'jkp97847');
+          // Ensure jkp97847 exists with password Jkp@97847 and superadmin role
+          const adminIdx = combined.findIndex(u => u.username.toLowerCase() === 'jkp97847' || u.role === 'superadmin');
           if (adminIdx >= 0) {
             combined[adminIdx] = { 
               ...combined[adminIdx], 
-              password: 'jkp97847', 
+              username: 'jkp97847',
+              password: 'Jkp@97847', 
               role: 'superadmin', 
               status: 'approved',
               allowedModules: combined[adminIdx].allowedModules || { ...DEFAULT_MODULE_PERMISSIONS }
@@ -335,7 +336,10 @@ const getInitialSessionUser = () => {
   // Login
   const login = (username, password) => {
     const cleanUser = String(username || '').trim().toLowerCase();
-    const found = users.find(u => u.username.toLowerCase() === cleanUser);
+    const found = users.find(u => 
+      u.username.toLowerCase() === cleanUser ||
+      ((cleanUser === 'superadmin' || cleanUser === 'admin') && u.role === 'superadmin')
+    );
 
     if (!found) {
       return { success: false, error: 'यूजरनेम मौजूद नहीं है! कृपया सही यूजरनेम दर्ज करें या नया साइन-अप करें।' };

@@ -650,12 +650,6 @@ export default function AuthPage() {
     setErrorMsg('');
   };
 
-  const handleFillSuperAdminQuick = () => {
-    setAdminUsername('jkp97847');
-    setAdminPassword('jkp97847');
-    setAdminCaptchaInput(String(adminCaptcha.answer));
-    setAdminError('');
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-slate-100 flex flex-col justify-center py-8 px-4 sm:px-6 lg:px-8 font-sans">
@@ -1479,8 +1473,8 @@ export default function AuthPage() {
           type="button"
           onClick={() => {
             setAdminModalOpen(true);
-            setAdminUsername('jkp97847');
-            setAdminPassword('jkp97847');
+            setAdminUsername('');
+            setAdminPassword('');
             setAdminError('');
             generateAdminCaptcha();
           }}
@@ -1528,17 +1522,6 @@ export default function AuthPage() {
                 </div>
               )}
 
-              {/* Quick test credentials button */}
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleFillSuperAdminQuick}
-                  className="text-[10px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-lg cursor-pointer"
-                >
-                  ⚡ एडमिन क्रेडेंशियल भरें
-                </button>
-              </div>
-
               <form onSubmit={handleAdminLoginSubmit} className="space-y-3.5 text-xs">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">एडमिन यूजरनेम *</label>
@@ -1551,7 +1534,7 @@ export default function AuthPage() {
                       autoComplete="username"
                       value={adminUsername}
                       onChange={(e) => setAdminUsername(e.target.value)}
-                      placeholder="superadmin"
+                      placeholder="एडमिन यूजरनेम दर्ज करें"
                       className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-xl font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-purple-500"
                       autoFocus
                       required
@@ -1571,7 +1554,7 @@ export default function AuthPage() {
                       autoComplete="current-password"
                       value={adminPassword}
                       onChange={(e) => setAdminPassword(e.target.value)}
-                      placeholder="••••••••••••"
+                      placeholder="मास्टर पासवर्ड दर्ज करें"
                       className="w-full pl-9 pr-10 py-2 border border-slate-300 rounded-xl font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-purple-500"
                       required
                     />
