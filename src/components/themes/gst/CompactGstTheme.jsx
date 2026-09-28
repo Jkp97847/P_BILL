@@ -11,14 +11,14 @@ export default function CompactGstTheme({ bill, settings }) {
   const items = bill.items || [];
   const grandTotal = Math.round(Number(bill.grandTotal || 0));
 
-  // Exactly 10 fixed rows
-  const FIXED_ROWS = 10;
-  const rows = Array.from({ length: FIXED_ROWS }, (_, idx) => items[idx] || null);
+  // Dynamic rows: exactly 10 rows for A4 single-page fit; expands to page 2 if items > 10
+  const rowCount = Math.max(10, items.length);
+  const rows = Array.from({ length: rowCount }, (_, idx) => items[idx] || null);
 
   const shouldShowGanesh = disp.showGaneshLogo && currentSettings.showGaneshLogo;
 
   return (
-    <div className="bg-white text-slate-900 border border-slate-400 p-3 sm:p-4 rounded max-w-4xl mx-auto shadow-xs text-[11px] leading-tight font-mono">
+    <div id="printable-bill" className="bg-white text-slate-900 border border-slate-400 p-3 sm:p-4 rounded max-w-4xl mx-auto shadow-xs text-[11px] leading-tight font-mono">
       {/* 1. COMPACT DENSE HEADER */}
       <div className="border-b border-slate-400 pb-1 mb-1 text-center font-sans">
         {shouldShowGanesh && (

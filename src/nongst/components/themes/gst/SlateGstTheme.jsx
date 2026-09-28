@@ -12,8 +12,8 @@ export default function SlateGstTheme({ bill, settings }) {
   const items = bill.items || [];
   const grandTotal = Math.round(Number(bill.grandTotal || 0));
 
-  const FIXED_ROWS = 10;
-  const rows = Array.from({ length: FIXED_ROWS }, (_, idx) => items[idx] || null);
+  const rowCount = Math.max(10, items.length);
+  const rows = Array.from({ length: rowCount }, (_, idx) => items[idx] || null);
   const shouldShowGanesh = disp.showGaneshLogo && currentSettings.showGaneshLogo;
 
   return (

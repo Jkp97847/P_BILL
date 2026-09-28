@@ -11,14 +11,14 @@ export default function ModernGstTheme({ bill, settings }) {
   const items = bill.items || [];
   const grandTotal = Math.round(Number(bill.grandTotal || 0));
 
-  // Exactly 10 fixed rows
-  const FIXED_ROWS = 10;
-  const rows = Array.from({ length: FIXED_ROWS }, (_, idx) => items[idx] || null);
+  // Dynamic rows: exactly 10 rows for A4 single-page fit; expands to page 2 if items > 10
+  const rowCount = Math.max(10, items.length);
+  const rows = Array.from({ length: rowCount }, (_, idx) => items[idx] || null);
 
   const shouldShowGanesh = disp.showGaneshLogo && currentSettings.showGaneshLogo;
 
   return (
-    <div className="bg-white text-slate-900 border border-indigo-200 rounded-xl p-5 md:p-6 max-w-4xl mx-auto shadow-md text-xs leading-relaxed font-sans">
+    <div id="printable-bill" className="bg-white text-slate-900 border border-indigo-200 rounded-xl p-4 sm:p-5 max-w-4xl mx-auto shadow-md text-xs leading-relaxed font-sans">
       {/* 1. TOP HEADER WITH INDIGO ACCENT */}
       <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-blue-900 text-white p-4 rounded-lg mb-3 shadow-sm">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">

@@ -12,14 +12,14 @@ export default function RoyalGstTheme({ bill, settings }) {
   const items = bill.items || [];
   const grandTotal = Math.round(Number(bill.grandTotal || 0));
 
-  // Exactly 10 fixed rows
-  const FIXED_ROWS = 10;
-  const rows = Array.from({ length: FIXED_ROWS }, (_, idx) => items[idx] || null);
+  // Dynamic rows: exactly 10 rows for A4 single-page fit; expands to page 2 if items > 10
+  const rowCount = Math.max(10, items.length);
+  const rows = Array.from({ length: rowCount }, (_, idx) => items[idx] || null);
 
   const shouldShowGanesh = disp.showGaneshLogo && currentSettings.showGaneshLogo;
 
   return (
-    <div id="printable-bill" className="bg-white text-slate-900 border-2 border-purple-900 rounded-lg p-5 max-w-4xl mx-auto shadow-md text-xs leading-relaxed font-serif">
+    <div id="printable-bill" className="bg-white text-slate-900 border-2 border-purple-900 rounded-lg p-4 sm:p-5 max-w-4xl mx-auto shadow-md text-xs leading-relaxed font-serif">
       {/* 1. ROYAL TOP HEADER */}
       <div className="grid grid-cols-12 items-center border-b-2 border-purple-900 pb-2 mb-2 min-h-[56px] gap-2">
         <div className="col-span-3 flex items-center justify-start">

@@ -11,14 +11,14 @@ export default function OceanGstTheme({ bill, settings }) {
   const items = bill.items || [];
   const grandTotal = Math.round(Number(bill.grandTotal || 0));
 
-  // Exactly 10 fixed rows
-  const FIXED_ROWS = 10;
-  const rows = Array.from({ length: FIXED_ROWS }, (_, idx) => items[idx] || null);
+  // Dynamic rows: exactly 10 rows for A4 single-page fit; expands to page 2 if items > 10
+  const rowCount = Math.max(10, items.length);
+  const rows = Array.from({ length: rowCount }, (_, idx) => items[idx] || null);
 
   const shouldShowGanesh = disp.showGaneshLogo && currentSettings.showGaneshLogo;
 
   return (
-    <div className="bg-white text-slate-900 border-2 border-sky-900 rounded-lg p-5 max-w-4xl mx-auto shadow-md text-xs leading-relaxed font-sans print:border-sky-900 print:p-4 print:shadow-none">
+    <div id="printable-bill" className="bg-white text-slate-900 border-2 border-sky-900 rounded-lg p-4 sm:p-5 max-w-4xl mx-auto shadow-md text-xs leading-relaxed font-sans print:border-sky-900 print:p-4 print:shadow-none">
       {/* 1. OCEAN TECH HEADER */}
       <div className="border-b-2 border-sky-900 pb-2 mb-2">
         <div className="flex justify-between items-center text-[10px] text-sky-900 font-bold mb-1">

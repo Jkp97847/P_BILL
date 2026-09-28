@@ -11,14 +11,14 @@ export default function ClassicGstTheme({ bill, settings }) {
   const items = bill.items || [];
   const grandTotal = Math.round(Number(bill.grandTotal || 0));
 
-  // Exactly 10 fixed rows
-  const FIXED_ROWS = 10;
-  const rows = Array.from({ length: FIXED_ROWS }, (_, idx) => items[idx] || null);
+  // Dynamic rows: exactly 10 rows for A4 single-page fit; expands to page 2 if items > 10
+  const rowCount = Math.max(10, items.length);
+  const rows = Array.from({ length: rowCount }, (_, idx) => items[idx] || null);
 
   const shouldShowGanesh = disp.showGaneshLogo && currentSettings.showGaneshLogo;
 
   return (
-    <div className="bg-white text-slate-900 border-2 border-slate-900 p-4 sm:p-6 rounded max-w-4xl mx-auto shadow-sm text-xs leading-relaxed">
+    <div id="printable-bill" className="bg-white text-slate-900 border-2 border-slate-900 p-4 sm:p-5 rounded max-w-4xl mx-auto shadow-sm text-xs leading-relaxed">
       {/* 1. TOP HEADER: GANESH JI & CONTACT */}
       <div className="relative border-b-2 border-slate-900 pb-2 mb-2 flex items-center justify-between">
         <div className="text-left w-1/3">
