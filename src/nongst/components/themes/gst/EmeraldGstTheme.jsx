@@ -62,7 +62,7 @@ export default function EmeraldGstTheme({ bill, settings }) {
       {/* 2. TITLE */}
       <div className="text-center my-1.5">
         <span className="inline-block bg-emerald-800 text-white font-extrabold px-6 py-1 rounded-full text-xs uppercase tracking-widest shadow-xs">
-          🌿 EMERALD RETAIL INVOICE 🌿
+          INVOICE
         </span>
       </div>
 

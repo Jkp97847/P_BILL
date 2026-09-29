@@ -60,7 +60,7 @@ export default function RoyalGstTheme({ bill, settings }) {
       {/* Invoice Banner */}
       <div className="text-center my-1">
         <span className="inline-block bg-purple-900 text-amber-300 font-sans font-bold px-6 py-1 rounded-full text-xs uppercase tracking-wider shadow-xs">
-          👑 SHOWROOM RETAIL CASH MEMO (मूल प्रति / ORIGINAL)
+          INVOICE
         </span>
       </div>
 

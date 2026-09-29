@@ -71,10 +71,10 @@ export default function ClassicGstTheme({ bill, settings }) {
         </div>
       </div>
 
-      {/* 2. TITLE: CASH MEMO */}
+      {/* 2. TITLE: INVOICE */}
       <div className="text-center my-1.5">
         <span className="inline-block border-2 border-slate-900 font-black px-6 py-0.5 text-xs sm:text-sm uppercase bg-slate-100 tracking-widest rounded">
-          ॥ कॅश मेमो / RETAIL CASH MEMO ॥
+          INVOICE
         </span>
       </div>
 

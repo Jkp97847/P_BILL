@@ -59,7 +59,7 @@ export default function CompactGstTheme({ bill, settings }) {
       {/* 2. COMPACT TITLE & FIRM */}
       <div className="text-center border-b border-slate-300 pb-1.5 mb-2">
         <span className="inline-block border border-slate-800 font-extrabold px-4 py-0.2 text-[11px] uppercase bg-slate-100 tracking-wider rounded-xs mb-1">
-          COMPACT RETAIL MEMO / बिल
+          INVOICE
         </span>
         {disp.showFirmName && (
           <h1 className="text-xl sm:text-3xl font-black uppercase tracking-tight text-slate-900 leading-tight">

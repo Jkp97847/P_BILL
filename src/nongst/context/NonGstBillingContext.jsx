@@ -4,17 +4,17 @@ import { useAuth } from '../../context/AuthContext';
 const BillingContext = createContext();
 
 const DEFAULT_SETTINGS = {
-  firmName: 'श्री गणेश ट्रेडर्स',
-  tagline: 'होलसेल एवं रिटेल जनरल मर्चेंट',
-  address: 'मेन मार्केट, रेलवे स्टेशन के पास, भारत',
-  mobile: '9876543210',
-  alternateMobile: '9123456789',
-  email: 'shreeganesh@example.com',
+  firmName: 'SHREE HARIPRIY COMPUTER SALE AND SERVICE',
+  tagline: 'हमारे पास सभी प्रकार के कंप्यूटर, प्रिंटर और सीसीटीवी कैमरा उपलब्ध हैं',
+  address: 'मेन मार्केट,मोमासर,बीकानेर (राज.)',
+  mobile: '9784730824',
+  alternateMobile: '8005809671',
+  email: 'shreeharipriy@gmail.com',
   bankName: 'भारतीय स्टेट बैंक (SBI)',
-  accountNo: '38920192847',
-  ifsc: 'SBIN0031245',
-  branch: 'स्टेशन रोड शाखा',
-  upiId: 'shreeganesh@upi',
+  accountNo: '61098663856',
+  ifsc: 'SBIN0031338',
+  branch: 'MOMASAR',
+  upiId: '9784730824229@PTSBI',
   logo: '',
   showGaneshLogo: true,
   ganeshText: '॥ श्री गणेशाय नमः ॥',
@@ -24,9 +24,9 @@ const DEFAULT_SETTINGS = {
     'भूल चूक लेनी देनी होगी (E. & O.E.)।'
   ],
   signatoryText: 'अधिकृत हस्ताक्षरकर्ता / Authorized Signatory',
-  ownerName: 'राजेश कुमार (प्रोपराइटर)',
+  ownerName: 'JAGDISH PRAJAPAT(PRO)',
   billPrefix: 'INV-',
-  nextBillSeq: 1005,
+  nextBillSeq: 485,
   selectedTheme: 'classic', // 10 themes: classic | modern | compact | royal | emerald | minimal | crimson | ocean | amber | slate
   // Custom display visibility controls for seller & bill details
   displayOptions: {
@@ -48,81 +48,100 @@ const DEFAULT_SETTINGS = {
 
 const DEFAULT_SELLER1_NON_GST_BILLS = [
   {
-    id: 'bill-1001',
-    billNo: 'INV-1001',
-    date: '2026-09-24',
-    customerName: 'रमेश कुमार शर्मा',
-    customerMobile: '9829012345',
-    customerAddress: 'स्टेशन रोड, सीकर (राज.)',
-    paymentMode: 'Cash / UPI',
+    id: "bill-1790565924035",
+    billNo: "INV-484",
+    date: "2026-09-28",
+    customerName: "MAHAVEER SUTHAR",
+    customerMobile: "8769765998",
     items: [
-      { id: '1', name: 'बासमती चावल (Basmati Rice 10kg)', qty: 2, price: 950, total: 1900 },
-      { id: '2', name: 'फॉर्च्यून सोयाबीन तेल (Soyabean Oil 1L)', qty: 5, price: 130, total: 650 },
-      { id: '3', name: 'टाटा नमक (Tata Salt 1kg)', qty: 3, price: 28, total: 84 }
+      { id: "item-1", name: "CAMERA INSTALLATION", qty: 6, price: 400, total: 2400 },
+      { id: "item-2", name: "CAMERA POWER SUPPY", qty: 1, price: 750, total: 750 },
+      { id: "item-1790565878771", name: "HIKVISION CAMERA DUAL LIGHT", qty: 1, price: 1805, total: 1805 }
     ],
-    subtotal: 2634,
+    subtotal: 4955,
     discount: 0,
-    grandTotal: 2634,
-    createdAt: '2026-09-24T10:15:00.000Z'
+    grandTotal: 4955,
+    createdAt: "2026-09-28T03:25:24.035Z"
   },
   {
-    id: 'bill-1002',
-    billNo: 'INV-1002',
-    date: '2026-09-25',
-    customerName: 'सुरेश कुमार जांगिड़',
-    customerMobile: '9829554433',
-    customerAddress: 'नवलगढ़ रोड, सीकर (राज.)',
-    paymentMode: 'Cash / UPI',
+    id: "bill-1790565779427",
+    billNo: "INV-483",
+    date: "2026-09-28",
+    customerName: "SURESH JI FARHOUSE",
+    customerMobile: "9413673370",
     items: [
-      { id: '1', name: 'आशीर्वाद शुद्ध चक्की आटा (Aashirvaad Atta 10kg)', qty: 2, price: 420, total: 840 },
-      { id: '2', name: 'पतंजलि गाय का देसी घी (Desi Ghee 1L)', qty: 2, price: 620, total: 1240 },
-      { id: '3', name: 'राजधानी बेसन (Rajdhani Besan 1kg)', qty: 3, price: 95, total: 285 },
-      { id: '4', name: 'ताज महल चायपत्ती (Taj Mahal Tea 500g)', qty: 2, price: 340, total: 680 },
-      { id: '5', name: 'डाबर शहद (Dabur Honey 500g)', qty: 1, price: 210, total: 210 }
+      { id: "item-1", name: "CAMERA SERVICE", qty: 5, price: 200, total: 1000 },
+      { id: "item-2", name: "CAMERA INSTALLATION", qty: 1, price: 400, total: 400 },
+      { id: "item-1790565745163", name: "CAMERA POWER SUPPLY", qty: 1, price: 750, total: 750 },
+      { id: "item-1790565768691", name: "DVR CMOS BATTERY", qty: 1, price: 150, total: 150 }
     ],
-    subtotal: 3255,
-    discount: 55,
-    grandTotal: 3200,
-    createdAt: '2026-09-25T12:30:00.000Z'
-  },
-  {
-    id: 'bill-1003',
-    billNo: 'INV-1003',
-    date: '2026-09-26',
-    customerName: 'विकास शर्मा',
-    customerMobile: '9414012345',
-    customerAddress: 'बजाज रोड, सीकर (राज.)',
-    paymentMode: 'Cash / UPI',
-    items: [
-      { id: '1', name: 'सर्फ एक्सेल मैटिक पाउडर (Surf Excel 2kg)', qty: 2, price: 380, total: 760 },
-      { id: '2', name: 'डेटॉल एंटीसेप्टिक लिक्विड (Dettol 500ml)', qty: 2, price: 195, total: 390 },
-      { id: '3', name: 'कोलगेट मैक्सफ्रेश पेस्ट (Colgate MaxFresh 150g)', qty: 3, price: 110, total: 330 },
-      { id: '4', name: 'विम बार डिशवॉश पैक (Vim Bar 4-in-1)', qty: 4, price: 45, total: 180 }
-    ],
-    subtotal: 1660,
+    subtotal: 2300,
     discount: 0,
-    grandTotal: 1660,
-    createdAt: '2026-09-26T14:45:00.000Z'
+    grandTotal: 2300,
+    createdAt: "2026-09-28T03:25:48.315Z"
   },
   {
-    id: 'bill-1004',
-    billNo: 'INV-1004',
-    date: '2026-09-27',
-    customerName: 'दिनेश कुमावत',
-    customerMobile: '9828112233',
-    customerAddress: 'पिपराली रोड, सीकर (राज.)',
-    paymentMode: 'Cash / UPI',
+    id: "bill-1790565539595",
+    billNo: "INV-482",
+    date: "2026-09-28",
+    customerName: "SURESH JI HOME",
+    customerMobile: "9413673370",
     items: [
-      { id: '1', name: 'फॉर्च्यून कच्ची घानी सरसों तेल (Mustard Oil 5L)', qty: 1, price: 750, total: 750 },
-      { id: '2', name: 'शक्कर / चीनी (Sugar Premium 5kg)', qty: 2, price: 225, total: 450 },
-      { id: '3', name: 'चना दाल प्रीमियम (Chana Dal 2kg)', qty: 2, price: 160, total: 320 },
-      { id: '4', name: 'हल्दीराम भुजिया (Haldiram Bhujia 1kg)', qty: 2, price: 260, total: 520 },
-      { id: '5', name: 'एवरेस्ट गरम मसाला (Everest Garam Masala 100g)', qty: 3, price: 85, total: 255 }
+      { id: "item-1", name: "CAMERA SERVICE", qty: 2, price: 200, total: 400 },
+      { id: "item-2", name: "CAMERA INSTALLATION", qty: 1, price: 400, total: 400 },
+      { id: "item-1790565494427", name: "CAMERA CHARGER", qty: 1, price: 400, total: 400 },
+      { id: "item-1790565510643", name: "DVR CMOS BATTERY", qty: 1, price: 150, total: 150 }
     ],
-    subtotal: 2295,
-    discount: 45,
-    grandTotal: 2250,
-    createdAt: '2026-09-27T16:20:00.000Z'
+    subtotal: 1350,
+    discount: 0,
+    grandTotal: 1350,
+    createdAt: "2026-09-28T03:18:59.595Z"
+  },
+  {
+    id: "bill-1790565414067",
+    billNo: "INV-481",
+    date: "2026-09-28",
+    customerName: "SHREE BHOMIYA JI GOU SHALA MOAMSAR",
+    customerMobile: "9413673370",
+    items: [
+      { id: "item-1", name: "HARD DIST 4 TB CONSISTENT VIDEO RECORD", qty: 1, price: 13500, total: 13500 },
+      { id: "item-2", name: "CAMERA INSTALLATION", qty: 4, price: 400, total: 1600 },
+      { id: "item-1790565378587", name: "CAMERA SERVICE", qty: 2, price: 200, total: 400 },
+      { id: "item-1790565673715", name: "DVR CMOS BATTERY", qty: 1, price: 150, total: 150 },
+      { id: "item-1790565960435", name: "CAMERA POWER SUPPLY", qty: 1, price: 750, total: 750 }
+    ],
+    subtotal: 16400,
+    discount: 0,
+    grandTotal: 16400,
+    createdAt: "2026-09-28T03:26:05.091Z"
+  },
+  {
+    id: "bill-1790565247027",
+    billNo: "INV-480",
+    date: "2026-07-13",
+    customerName: "GOVT SEN SEC SCHOOL DANIYASAR",
+    customerMobile: "9828417414",
+    items: [
+      { id: "item-1", name: "PRINT STAR EASY REFILL CARTRIDGE", qty: 2, price: 650, total: 1300 }
+    ],
+    subtotal: 1300,
+    discount: 0,
+    grandTotal: 1300,
+    createdAt: "2026-09-28T03:14:07.027Z"
+  },
+  {
+    id: "bill-1790565178811",
+    billNo: "INV-479",
+    date: "2026-07-13",
+    customerName: "GOVT SEN SEC SCHOOL DANIYASAR",
+    customerMobile: "9828417414",
+    items: [
+      { id: "item-1", name: "PRINT STAR EXTRA DARK GOLD CARTRIDGE POWDER", qty: 12, price: 160, total: 1920 }
+    ],
+    subtotal: 1920,
+    discount: 0,
+    grandTotal: 1920,
+    createdAt: "2026-09-28T03:12:58.811Z"
   }
 ];
 

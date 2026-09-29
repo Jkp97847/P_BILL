@@ -61,7 +61,7 @@ export default function OceanGstTheme({ bill, settings }) {
       {/* 2. TITLE */}
       <div className="text-center my-1.5">
         <span className="inline-block bg-cyan-900 text-white font-extrabold px-6 py-1 rounded-full text-xs uppercase tracking-widest shadow-xs">
-          🌊 OCEAN BLUE RETAIL MEMO 🌊
+          INVOICE
         </span>
       </div>
 

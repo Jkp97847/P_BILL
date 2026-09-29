@@ -62,7 +62,7 @@ export default function MinimalistGstTheme({ bill, settings }) {
 
       {/* Invoice Title */}
       <div className="text-center my-1 border-y border-black py-0.5 font-mono text-[11px] font-black tracking-widest uppercase">
-        RETAIL CASH MEMO / खुदरा बिल (मूल प्रति / ORIGINAL)
+        INVOICE
       </div>
 
       {/* Firm Info */}

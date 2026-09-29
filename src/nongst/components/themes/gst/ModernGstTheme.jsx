@@ -66,7 +66,7 @@ export default function ModernGstTheme({ bill, settings }) {
       {/* 2. MODERN TITLE */}
       <div className="text-center my-1.5">
         <span className="inline-block bg-gradient-to-r from-indigo-700 to-blue-700 text-white font-extrabold px-6 py-1 rounded-full text-xs uppercase tracking-widest shadow-xs">
-          ★ MODERN RETAIL CASH MEMO ★
+          INVOICE
         </span>
       </div>
 
