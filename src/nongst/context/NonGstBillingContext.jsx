@@ -26,7 +26,7 @@ const DEFAULT_SETTINGS = {
   signatoryText: 'अधिकृत हस्ताक्षरकर्ता / Authorized Signatory',
   ownerName: 'राजेश कुमार (प्रोपराइटर)',
   billPrefix: 'INV-',
-  nextBillSeq: 1001,
+  nextBillSeq: 1005,
   selectedTheme: 'classic', // 10 themes: classic | modern | compact | royal | emerald | minimal | crimson | ocean | amber | slate
   // Custom display visibility controls for seller & bill details
   displayOptions: {
@@ -46,13 +46,15 @@ const DEFAULT_SETTINGS = {
   }
 };
 
-const SAMPLE_BILLS = [
+const DEFAULT_SELLER1_NON_GST_BILLS = [
   {
     id: 'bill-1001',
     billNo: 'INV-1001',
-    date: new Date().toISOString().split('T')[0],
+    date: '2026-09-24',
     customerName: 'रमेश कुमार शर्मा',
     customerMobile: '9829012345',
+    customerAddress: 'स्टेशन रोड, सीकर (राज.)',
+    paymentMode: 'Cash / UPI',
     items: [
       { id: '1', name: 'बासमती चावल (Basmati Rice 10kg)', qty: 2, price: 950, total: 1900 },
       { id: '2', name: 'फॉर्च्यून सोयाबीन तेल (Soyabean Oil 1L)', qty: 5, price: 130, total: 650 },
@@ -61,48 +63,104 @@ const SAMPLE_BILLS = [
     subtotal: 2634,
     discount: 0,
     grandTotal: 2634,
-    createdAt: new Date().toISOString()
+    createdAt: '2026-09-24T10:15:00.000Z'
+  },
+  {
+    id: 'bill-1002',
+    billNo: 'INV-1002',
+    date: '2026-09-25',
+    customerName: 'सुरेश कुमार जांगिड़',
+    customerMobile: '9829554433',
+    customerAddress: 'नवलगढ़ रोड, सीकर (राज.)',
+    paymentMode: 'Cash / UPI',
+    items: [
+      { id: '1', name: 'आशीर्वाद शुद्ध चक्की आटा (Aashirvaad Atta 10kg)', qty: 2, price: 420, total: 840 },
+      { id: '2', name: 'पतंजलि गाय का देसी घी (Desi Ghee 1L)', qty: 2, price: 620, total: 1240 },
+      { id: '3', name: 'राजधानी बेसन (Rajdhani Besan 1kg)', qty: 3, price: 95, total: 285 },
+      { id: '4', name: 'ताज महल चायपत्ती (Taj Mahal Tea 500g)', qty: 2, price: 340, total: 680 },
+      { id: '5', name: 'डाबर शहद (Dabur Honey 500g)', qty: 1, price: 210, total: 210 }
+    ],
+    subtotal: 3255,
+    discount: 55,
+    grandTotal: 3200,
+    createdAt: '2026-09-25T12:30:00.000Z'
+  },
+  {
+    id: 'bill-1003',
+    billNo: 'INV-1003',
+    date: '2026-09-26',
+    customerName: 'विकास शर्मा',
+    customerMobile: '9414012345',
+    customerAddress: 'बजाज रोड, सीकर (राज.)',
+    paymentMode: 'Cash / UPI',
+    items: [
+      { id: '1', name: 'सर्फ एक्सेल मैटिक पाउडर (Surf Excel 2kg)', qty: 2, price: 380, total: 760 },
+      { id: '2', name: 'डेटॉल एंटीसेप्टिक लिक्विड (Dettol 500ml)', qty: 2, price: 195, total: 390 },
+      { id: '3', name: 'कोलगेट मैक्सफ्रेश पेस्ट (Colgate MaxFresh 150g)', qty: 3, price: 110, total: 330 },
+      { id: '4', name: 'विम बार डिशवॉश पैक (Vim Bar 4-in-1)', qty: 4, price: 45, total: 180 }
+    ],
+    subtotal: 1660,
+    discount: 0,
+    grandTotal: 1660,
+    createdAt: '2026-09-26T14:45:00.000Z'
+  },
+  {
+    id: 'bill-1004',
+    billNo: 'INV-1004',
+    date: '2026-09-27',
+    customerName: 'दिनेश कुमावत',
+    customerMobile: '9828112233',
+    customerAddress: 'पिपराली रोड, सीकर (राज.)',
+    paymentMode: 'Cash / UPI',
+    items: [
+      { id: '1', name: 'फॉर्च्यून कच्ची घानी सरसों तेल (Mustard Oil 5L)', qty: 1, price: 750, total: 750 },
+      { id: '2', name: 'शक्कर / चीनी (Sugar Premium 5kg)', qty: 2, price: 225, total: 450 },
+      { id: '3', name: 'चना दाल प्रीमियम (Chana Dal 2kg)', qty: 2, price: 160, total: 320 },
+      { id: '4', name: 'हल्दीराम भुजिया (Haldiram Bhujia 1kg)', qty: 2, price: 260, total: 520 },
+      { id: '5', name: 'एवरेस्ट गरम मसाला (Everest Garam Masala 100g)', qty: 3, price: 85, total: 255 }
+    ],
+    subtotal: 2295,
+    discount: 45,
+    grandTotal: 2250,
+    createdAt: '2026-09-27T16:20:00.000Z'
   }
 ];
 
+const SAMPLE_BILLS = DEFAULT_SELLER1_NON_GST_BILLS;
+
 export function BillingProvider({ children }) {
-  const { currentUser, users, restoreAllUsers } = useAuth();
-  const activeUserId = currentUser ? currentUser.id : 'guest';
+  const { currentUser, impersonatedSeller, activeSeller, users, restoreAllUsers } = useAuth();
+  const effectiveUser = impersonatedSeller || activeSeller || (currentUser?.role === 'seller' ? currentUser : null);
+  const activeUserId = effectiveUser ? effectiveUser.id : (currentUser ? currentUser.id : 'guest');
 
   // Helper: create initial settings for a user
   const getInitialSettingsForUser = (userId, userObj) => {
     const isDemo = userId === 'seller_demo' || userId === 'seller1' || userObj?.username === 'seller1';
     try {
       const scopedKey = `billing_app_settings_${userId}`;
-      const saved = localStorage.getItem(scopedKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          ...DEFAULT_SETTINGS,
-          ...parsed,
-          isConfigured: parsed.isConfigured !== undefined 
-            ? Boolean(parsed.isConfigured) 
-            : (isDemo || Boolean(parsed.firmName && parsed.ownerName)),
-          ownerName: parsed.ownerName || (isDemo ? DEFAULT_SETTINGS.ownerName : ''),
-          firmName: parsed.firmName || (isDemo ? DEFAULT_SETTINGS.firmName : ''),
-          selectedTheme: parsed.selectedTheme || DEFAULT_SETTINGS.selectedTheme,
-          displayOptions: {
-            ...DEFAULT_SETTINGS.displayOptions,
-            ...(parsed.displayOptions || {})
-          }
-        };
-      }
+      const keysToCheck = [
+        scopedKey,
+        ...(isDemo ? [
+          'billing_app_settings_seller_demo',
+          'billing_app_settings_seller1',
+          'billing_app_settings_admin_master',
+          'billing_app_settings'
+        ] : [])
+      ];
 
-      // Check legacy global settings if demo user
-      if (isDemo) {
-        const legacy = localStorage.getItem('billing_app_settings');
-        if (legacy) {
-          const parsed = JSON.parse(legacy);
+      for (const k of keysToCheck) {
+        const saved = localStorage.getItem(k);
+        if (saved) {
+          const parsed = JSON.parse(saved);
           return {
             ...DEFAULT_SETTINGS,
             ...parsed,
-            isConfigured: true,
-            ownerName: parsed.ownerName || DEFAULT_SETTINGS.ownerName,
+            nextBillSeq: parsed.nextBillSeq || DEFAULT_SETTINGS.nextBillSeq,
+            isConfigured: parsed.isConfigured !== undefined 
+              ? Boolean(parsed.isConfigured) 
+              : (isDemo || Boolean(parsed.firmName && parsed.ownerName)),
+            ownerName: parsed.ownerName || (isDemo ? DEFAULT_SETTINGS.ownerName : ''),
+            firmName: parsed.firmName || (isDemo ? DEFAULT_SETTINGS.firmName : ''),
             selectedTheme: parsed.selectedTheme || DEFAULT_SETTINGS.selectedTheme,
             displayOptions: {
               ...DEFAULT_SETTINGS.displayOptions,
@@ -110,7 +168,10 @@ export function BillingProvider({ children }) {
             }
           };
         }
+      }
 
+      // Default settings for demo user
+      if (isDemo) {
         return {
           ...DEFAULT_SETTINGS,
           isConfigured: true
@@ -142,36 +203,70 @@ export function BillingProvider({ children }) {
     }
   };
 
-  // Helper: get initial bills for a user
-  const getInitialBillsForUser = (userId) => {
+  // Helper: get initial bills for a user with cross-key recovery and fallback
+  const getInitialBillsForUser = (userId, userObj) => {
     try {
-      const scopedKey = `billing_app_bills_${userId}`;
-      const saved = localStorage.getItem(scopedKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return Array.isArray(parsed) ? parsed : [];
+      const isDemo = userId === 'seller_demo' || userId === 'seller1' || userObj?.username === 'seller1';
+      
+      const keysToCheck = [
+        `billing_app_bills_${userId}`,
+        ...(isDemo ? [
+          'billing_app_bills_seller_demo',
+          'billing_app_bills_seller1',
+          'billing_app_bills_admin_master',
+          'billing_app_bills',
+          'mobile_billing_nongst_bills_seller_demo',
+          'mobile_billing_nongst_bills_seller1',
+          'mobile_billing_nongst_bills'
+        ] : [])
+      ];
+
+      const collectedBills = [];
+      const seenBillKeys = new Set();
+
+      for (const k of keysToCheck) {
+        const raw = localStorage.getItem(k);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              for (const bill of parsed) {
+                if (bill && (bill.id || bill.billNo)) {
+                  const billKey = String(bill.billNo || bill.id).trim();
+                  if (!seenBillKeys.has(billKey)) {
+                    seenBillKeys.add(billKey);
+                    collectedBills.push(bill);
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.error('Error parsing bills from', k, e);
+          }
+        }
       }
 
-      // Demo user gets sample bills or migrated legacy bills
-      if (userId === 'seller_demo') {
-        const legacy = localStorage.getItem('billing_app_bills');
-        if (legacy) {
-          const parsed = JSON.parse(legacy);
-          return Array.isArray(parsed) ? parsed : SAMPLE_BILLS;
-        }
-        return SAMPLE_BILLS;
+      if (collectedBills.length > 0) {
+        return collectedBills;
+      }
+
+      // If demo seller seller1 and no bills found anywhere in storage, return full default sample bills
+      if (isDemo) {
+        return DEFAULT_SELLER1_NON_GST_BILLS;
       }
 
       // Any other regular user starts with an empty clean slate!
       return [];
     } catch {
-      return userId === 'seller_demo' ? SAMPLE_BILLS : [];
+      return (userId === 'seller_demo' || userId === 'seller1' || userObj?.username === 'seller1') 
+        ? DEFAULT_SELLER1_NON_GST_BILLS 
+        : [];
     }
   };
 
   // Active user's scoped states
-  const [settings, setSettings] = useState(() => getInitialSettingsForUser(activeUserId, currentUser));
-  const [bills, setBills] = useState(() => getInitialBillsForUser(activeUserId));
+  const [settings, setSettings] = useState(() => getInitialSettingsForUser(activeUserId, effectiveUser || currentUser));
+  const [bills, setBills] = useState(() => getInitialBillsForUser(activeUserId, effectiveUser || currentUser));
 
   // Current bill being edited (null = new bill mode)
   const [editingBill, setEditingBill] = useState(null);
@@ -184,8 +279,8 @@ export function BillingProvider({ children }) {
 
   // Sync state whenever the active user logs in, out, or switches accounts!
   useEffect(() => {
-    const userSettings = getInitialSettingsForUser(activeUserId, currentUser);
-    const userBills = getInitialBillsForUser(activeUserId);
+    const userSettings = getInitialSettingsForUser(activeUserId, effectiveUser || currentUser);
+    const userBills = getInitialBillsForUser(activeUserId, effectiveUser || currentUser);
     setSettings(userSettings);
     setBills(userBills);
     setEditingBill(null);
@@ -196,25 +291,35 @@ export function BillingProvider({ children }) {
     }
   }, [activeUserId]);
 
-  // Save Settings to scoped LocalStorage
+  // Save Settings to scoped LocalStorage with cross-sync for seller1
   useEffect(() => {
     if (!activeUserId) return;
     try {
       localStorage.setItem(`billing_app_settings_${activeUserId}`, JSON.stringify(settings));
+      if (activeUserId === 'seller_demo' || activeUserId === 'seller1' || effectiveUser?.username === 'seller1') {
+        localStorage.setItem('billing_app_settings_seller_demo', JSON.stringify(settings));
+        localStorage.setItem('billing_app_settings_seller1', JSON.stringify(settings));
+        localStorage.setItem('billing_app_settings', JSON.stringify(settings));
+      }
     } catch (e) {
       console.error('Failed to save scoped settings to localStorage', e);
     }
-  }, [settings, activeUserId]);
+  }, [settings, activeUserId, effectiveUser]);
 
-  // Save Bills to scoped LocalStorage
+  // Save Bills to scoped LocalStorage with cross-sync for seller1
   useEffect(() => {
     if (!activeUserId) return;
     try {
       localStorage.setItem(`billing_app_bills_${activeUserId}`, JSON.stringify(bills));
+      if (activeUserId === 'seller_demo' || activeUserId === 'seller1' || effectiveUser?.username === 'seller1') {
+        localStorage.setItem('billing_app_bills_seller_demo', JSON.stringify(bills));
+        localStorage.setItem('billing_app_bills_seller1', JSON.stringify(bills));
+        localStorage.setItem('billing_app_bills', JSON.stringify(bills));
+      }
     } catch (e) {
       console.error('Failed to save scoped bills to localStorage', e);
     }
-  }, [bills, activeUserId]);
+  }, [bills, activeUserId, effectiveUser]);
 
   // Update Settings
   const updateSettings = (newSettings) => {
@@ -236,14 +341,15 @@ export function BillingProvider({ children }) {
 
   // Reset Settings to Defaults
   const resetSettings = () => {
-    if (currentUser?.profile) {
+    const targetUser = effectiveUser || currentUser;
+    if (targetUser?.profile) {
       setSettings({
         ...DEFAULT_SETTINGS,
-        firmName: currentUser.profile.shopName || DEFAULT_SETTINGS.firmName,
-        ownerName: currentUser.profile.name || DEFAULT_SETTINGS.ownerName,
-        mobile: currentUser.profile.mobile || DEFAULT_SETTINGS.mobile,
-        address: currentUser.profile.address || DEFAULT_SETTINGS.address,
-        email: currentUser.profile.email || DEFAULT_SETTINGS.email
+        firmName: targetUser.profile.shopName || DEFAULT_SETTINGS.firmName,
+        ownerName: targetUser.profile.ownerName || targetUser.profile.name || DEFAULT_SETTINGS.ownerName,
+        mobile: targetUser.profile.mobile || DEFAULT_SETTINGS.mobile,
+        address: targetUser.profile.address || DEFAULT_SETTINGS.address,
+        email: targetUser.profile.email || DEFAULT_SETTINGS.email
       });
     } else {
       setSettings(DEFAULT_SETTINGS);
