@@ -40,7 +40,7 @@
 @media print {
   @page {
     size: A4 portrait;
-    margin: 8mm 8mm;
+    margin: 5mm 6mm;
   }
 
   /* Force exact background colors, borders, badges and graphics in all browsers */
@@ -57,7 +57,8 @@
     margin: 0 !important;
     padding: 0 !important;
     width: 100% !important;
-    font-size: 11pt;
+    font-size: 10pt;
+    line-height: 1.25;
   }
 
   /* Completely hide all UI, navigation, buttons and screen components */
@@ -77,19 +78,37 @@
     background-color: #ffffff !important;
   }
 
-  /* Bill Print Layout: Fits on 1 A4 Page if <=10 items, flows cleanly to Page 2+ if >10 items */
+  /* Bill Print Layout: Fits comfortably on 1 A4 Page if <=10 items, flows cleanly to Page 2+ if >10 items */
   #printable-bill {
     display: block !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 auto !important;
-    padding: 10px 14px !important;
+    padding: 6px 10px !important;
     box-shadow: none !important;
     background-color: #ffffff !important;
     color: #0f172a !important;
     box-sizing: border-box !important;
     page-break-inside: auto !important;
     break-inside: auto !important;
+    font-size: 9.5pt !important;
+    line-height: 1.25 !important;
+  }
+
+  /* Tighten section vertical spacing inside bill for exact A4 1-page fit */
+  #printable-bill .mb-3,
+  #printable-bill .my-3 {
+    margin-bottom: 3px !important;
+    margin-top: 3px !important;
+  }
+  #printable-bill .mb-2,
+  #printable-bill .my-2 {
+    margin-bottom: 2px !important;
+    margin-top: 2px !important;
+  }
+  #printable-bill .p-4,
+  #printable-bill .p-3 {
+    padding: 4px 6px !important;
   }
 
   /* Table styling allowing multi-page flow with header repetition */
@@ -108,11 +127,18 @@
   #printable-bill thead th {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    padding-top: 2.5px !important;
+    padding-bottom: 2.5px !important;
   }
 
   #printable-bill tbody tr {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+  }
+
+  #printable-bill tbody td {
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
   }
 
   #printable-bill tfoot {
@@ -122,6 +148,20 @@
   }
 
   #printable-bill tfoot tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  #printable-bill tfoot td {
+    padding-top: 2.5px !important;
+    padding-bottom: 2.5px !important;
+  }
+
+  /* Keep footer blocks together without awkward mid-box page splits */
+  #printable-bill .bill-footer,
+  #printable-bill .bill-summary,
+  #printable-bill .bill-bank-qr,
+  #printable-bill .bill-signatory {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
