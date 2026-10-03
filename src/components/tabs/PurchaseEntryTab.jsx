@@ -586,13 +586,13 @@ export default function PurchaseEntryTab() {
           <Lock className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
           <div className="text-xs space-y-1">
             <div className="font-black text-sm text-amber-900">
-              🔒 यह खरीद प्रविष्टि लॉक है (संशोधन / डिलीट वर्जित)
+              🔒 यह खरीद प्रविष्टि लॉक है (बिका हुआ सामान - संशोधन / डिलीट वर्जित - Saled item not deleted)
             </div>
             <div>
-              इस खरीद प्रविष्टि का सामान / सीरियल नंबर <span className="font-mono font-bold text-amber-950">"{isLockedDueToSale.soldSerial}"</span> ({isLockedDueToSale.itemName}) पहले ही बिक्री बिल <span className="font-mono font-bold">#{isLockedDueToSale.billNo}</span> में बेचा जा चुका है।
+              इस खरीद प्रविष्टि का सामान (आइटम: <span className="font-bold">{isLockedDueToSale.itemName}</span>, कोड: <span className="font-mono font-bold">{isLockedDueToSale.itemNo || ''}</span>, सीरियल/IMEI: <span className="font-mono font-bold text-amber-950">"{isLockedDueToSale.soldSerial}"</span>) पहले ही बिक्री बिल <span className="font-mono font-bold">#{isLockedDueToSale.billNo}</span> में बेचा जा चुका है।
             </div>
-            <div className="font-semibold text-amber-800">
-              बिक चुके सामान की खरीद डिटेल्स में बदलाव या डिलीट करना प्रतिबंधित है।
+            <div className="font-semibold text-rose-800">
+              बिके हुए सामान की खरीद डिटेल्स में बदलाव या डिलीट करना पूरी तरह प्रतिबंधित है (Saled item not deleted)।
             </div>
           </div>
         </div>

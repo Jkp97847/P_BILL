@@ -341,9 +341,9 @@ export default function BillGenerateTab() {
       if (availableStock <= 0) {
         setNotification({
           type: 'error',
-          message: `⚠️ आइटम "${matched.itemNo}" (${matched.name}) का स्टॉक समाप्त हो चुका है या यह पहले ही बिक चुका है!`
+          message: `⚠️ आइटम "${matched.name}" (कोड: ${matched.itemNo}) का स्टॉक समाप्त हो चुका है (उपलब्ध स्टॉक: 0)! बिना स्टॉक के सेल नहीं किया जा सकता। कृपया पहले परचेज दर्ज करें।`
         });
-        setTimeout(() => setNotification(null), 5000);
+        setTimeout(() => setNotification(null), 6000);
         setRows(prevRows => {
           const updated = [...prevRows];
           updated[index] = createEmptyRow(index, gstSlabs[0] || 18);
@@ -421,7 +421,21 @@ export default function BillGenerateTab() {
       return false;
     });
 
-    if (matched && (!row.name || row.name !== matched.name)) {
+    if (!matched) {
+      setNotification({
+        type: 'error',
+        message: `⚠️ आइटम कोड "${code}" परचेज लिस्ट में नहीं मिला! बिना परचेज (Purchase Entry) के कोई भी सामान सेल नहीं किया जा सकता। कृपया पहले सप्लायर से परचेज दर्ज करें।`
+      });
+      setTimeout(() => setNotification(null), 6000);
+      setRows(prevRows => {
+        const updated = [...prevRows];
+        updated[index] = createEmptyRow(index, gstSlabs[0] || 18);
+        return updated;
+      });
+      return;
+    }
+
+    if (matched) {
       selectInventoryItem(index, matched);
     }
   };
@@ -448,10 +462,15 @@ export default function BillGenerateTab() {
     if (availableStock <= 0) {
       setNotification({
         type: 'error',
-        message: `⚠️ आइटम "${item.itemNo}" (${item.name}) का स्टॉक समाप्त हो चुका है या यह पहले ही बिक चुका है!`
+        message: `⚠️ आइटम "${item.name}" (कोड: ${item.itemNo}) का स्टॉक समाप्त हो चुका है (उपलब्ध स्टॉक: 0)! कृपया पहले सप्लायर से परचेज (Purchase Entry) दर्ज करें।`
       });
-      setTimeout(() => setNotification(null), 5000);
+      setTimeout(() => setNotification(null), 6000);
       setActiveSuggestionRow(null);
+      setRows(prevRows => {
+        const updated = [...prevRows];
+        updated[index] = createEmptyRow(index, gstSlabs[0] || 18);
+        return updated;
+      });
       return;
     }
 
@@ -514,10 +533,28 @@ export default function BillGenerateTab() {
         }
       }
 
-      // If item is serialized (has serialNo attached), qty cannot exceed 1!
+      // If item quantity is changed, validate against available stock
       if (field === 'qty') {
         const cleanItemNo = String(target.itemNo || '').trim().toUpperCase();
         const invMatch = inventory.find(it => String(it.itemNo || '').trim().toUpperCase() === cleanItemNo);
+        if (invMatch) {
+          const avail = getAvailableStockForItem(invMatch, index, prev);
+          if (avail <= 0) {
+            setNotification({
+              type: 'error',
+              message: `⚠️ आइटम "${invMatch.name}" स्टॉक में उपलब्ध नहीं है (उपलब्ध: 0)!`
+            });
+            setTimeout(() => setNotification(null), 5000);
+            target.qty = 0;
+          } else if (parseFloat(value) > avail) {
+            setNotification({
+              type: 'error',
+              message: `⚠️ आइटम "${invMatch.name}" का उपलब्ध स्टॉक केवल ${avail} है! आप ${value} मात्रा नहीं बेच सकते।`
+            });
+            setTimeout(() => setNotification(null), 5000);
+            target.qty = avail;
+          }
+        }
         if ((target.serialNo && target.serialNo.trim()) || (invMatch && (invMatch.serialNo || (invMatch.serialNumbers && invMatch.serialNumbers.length > 0)))) {
           target.qty = 1;
         }
@@ -772,14 +809,55 @@ export default function BillGenerateTab() {
         return null;
       }
 
-      // Auto-assign Item Code if missing
-      if (!r.itemNo || !r.itemNo.trim()) {
-        r.itemNo = generateNextItemCode ? generateNextItemCode(r.name, 'Mobile', rows, false) : `ITM-${100 + rowNum}`;
+      const cleanCode = String(r.itemNo || '').trim().toUpperCase();
+      if (!cleanCode) {
+        setNotification({
+          type: 'error',
+          message: `⚠️ पंक्ति #${rowNum}: आइटम कोड दर्ज करना अनिवार्य है! बिना परचेज किए गए आइटम की बिक्री नहीं की जा सकती।`
+        });
+        setTimeout(() => setNotification(null), 5000);
+        return null;
+      }
+
+      // 1. Purchase Check: Must exist in inventory
+      const invMatch = inventory.find(it => String(it.itemNo || '').trim().toUpperCase() === cleanCode);
+      if (!invMatch) {
+        setNotification({
+          type: 'error',
+          message: `⚠️ पंक्ति #${rowNum}: आइटम कोड "${cleanCode}" (${r.name || 'अज्ञात'}) परचेज लिस्ट में नहीं मिला! बिना परचेज (Purchase Entry) के कोई भी सामान सेल नहीं किया जा सकता। कृपया पहले परचेज दर्ज करें।`
+        });
+        setTimeout(() => setNotification(null), 6000);
+        return null;
+      }
+
+      // 2. Stock Quantity Check: Must have available stock > 0
+      let origQty = 0;
+      if (editingBill && editingBill.items) {
+        const orig = editingBill.items.find(it => String(it.itemNo || '').trim().toUpperCase() === cleanCode);
+        if (orig) origQty = Number(orig.qty) || 0;
+      }
+      const availableStock = getAvailableStockForItem(invMatch, index, rows) + origQty;
+
+      if (availableStock <= 0) {
+        setNotification({
+          type: 'error',
+          message: `⚠️ पंक्ति #${rowNum}: आइटम "${invMatch.name}" (${invMatch.itemNo}) का स्टॉक समाप्त है (उपलब्ध: 0)! कृपया पहले इसे परचेज करें।`
+        });
+        setTimeout(() => setNotification(null), 6000);
+        return null;
+      }
+
+      if (Number(r.qty) > availableStock) {
+        setNotification({
+          type: 'error',
+          message: `⚠️ पंक्ति #${rowNum}: आइटम "${invMatch.name}" का उपलब्ध स्टॉक केवल ${availableStock} है! आप ${r.qty} मात्रा नहीं बेच सकते।`
+        });
+        setTimeout(() => setNotification(null), 6000);
+        return null;
       }
 
       // Auto-assign Serial No / Key if present in inventory
       if (!r.serialNo || !r.serialNo.trim()) {
-        const invMatch = inventory.find(it => String(it.itemNo || '').trim().toUpperCase() === String(r.itemNo || '').trim().toUpperCase());
         r.serialNo = getAutoSerialsForItem(invMatch, 1, rows, index) || '';
       }
 
@@ -1343,11 +1421,11 @@ export default function BillGenerateTab() {
                         )}
                       </div>
 
-                      {/* Autocomplete Suggestion Dropdown (Only unsold available stock items) */}
+                      {/* Autocomplete Suggestion Dropdown (With Out of Stock Warning on Click) */}
                       {activeSuggestionRow === index && (
-                        <div className="absolute left-0 top-full mt-1 z-30 w-72 bg-white rounded-lg shadow-xl border border-slate-200 py-1 max-h-48 overflow-y-auto">
-                          <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-100 flex justify-between bg-slate-50">
-                            <span>उपलब्ध अनसोल्ड स्टॉक से चुनें</span>
+                        <div className="absolute left-0 top-full mt-1 z-30 w-80 bg-white rounded-lg shadow-xl border border-slate-200 py-1 max-h-56 overflow-y-auto">
+                          <div className="px-2.5 py-1 text-[10px] font-bold text-slate-500 uppercase border-b border-slate-100 flex justify-between bg-slate-50">
+                            <span>उपलब्ध सामान लिस्ट (स्टॉक स्थिति सहित)</span>
                             <button
                               type="button"
                               onClick={() => setActiveSuggestionRow(null)}
@@ -1358,8 +1436,6 @@ export default function BillGenerateTab() {
                           </div>
                           {inventory
                             .filter(item => {
-                              const avail = getAvailableStockForItem(item, index, rows);
-                              if (avail <= 0) return false;
                               if (!row.itemNo) return true;
                               const q = row.itemNo.toLowerCase().trim();
                               return item.itemNo.toLowerCase().includes(q) || item.name.toLowerCase().includes(q);
@@ -1367,35 +1443,58 @@ export default function BillGenerateTab() {
                             .slice(0, 15)
                             .map((item) => {
                               const avail = getAvailableStockForItem(item, index, rows);
+                              const isOutOfStock = avail <= 0;
                               return (
                                 <button
                                   key={item.id}
                                   type="button"
                                   onMouseDown={(e) => {
                                     e.preventDefault();
+                                    if (isOutOfStock) {
+                                      setNotification({
+                                        type: 'error',
+                                        message: `⚠️ आइटम "${item.name}" (कोड: ${item.itemNo}) स्टॉक में उपलब्ध नहीं है (उपलब्ध: 0)! कृपया पहले सप्लायर से परचेज (Purchase Entry) दर्ज करें।`
+                                      });
+                                      setTimeout(() => setNotification(null), 6000);
+                                      setActiveSuggestionRow(null);
+                                      return;
+                                    }
                                     selectInventoryItem(index, item);
                                     setActiveSuggestionRow(null);
                                   }}
-                                  className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 flex items-center justify-between text-xs border-b border-slate-50 last:border-0 cursor-pointer"
+                                  className={`w-full text-left px-3 py-2 flex items-center justify-between text-xs border-b border-slate-50 last:border-0 cursor-pointer ${
+                                    isOutOfStock 
+                                      ? 'bg-rose-50/50 hover:bg-rose-100/70 text-slate-600' 
+                                      : 'hover:bg-indigo-50 text-slate-800'
+                                  }`}
                                 >
                                   <div>
-                                    <span className="font-mono font-bold text-indigo-700 mr-2">
-                                      {item.itemNo}
+                                    <div className="flex items-center gap-1.5">
+                                      <span className={`font-mono font-bold ${isOutOfStock ? 'text-rose-700' : 'text-indigo-700'}`}>
+                                        {item.itemNo}
+                                      </span>
+                                      {isOutOfStock && (
+                                        <span className="text-[9px] bg-rose-100 text-rose-800 font-extrabold px-1.5 py-0.2 rounded border border-rose-200">
+                                          आउट ऑफ स्टॉक (0)
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className={`text-xs font-medium block truncate max-w-[170px] ${isOutOfStock ? 'text-slate-500' : 'text-slate-800'}`}>
+                                      {item.name}
                                     </span>
-                                    <span className="font-medium text-slate-800">{item.name}</span>
                                   </div>
                                   <div className="text-right shrink-0 ml-2">
                                     <div className="font-mono font-bold text-slate-900">₹{item.salePrice}</div>
-                                    <span className="text-[10px] text-emerald-600 font-bold">
-                                      उपलब्ध: {avail}
+                                    <span className={`text-[10px] font-bold ${isOutOfStock ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                      {isOutOfStock ? 'स्टॉक: 0' : `उपलब्ध: ${avail}`}
                                     </span>
                                   </div>
                                 </button>
                               );
                             })}
-                          {inventory.filter(item => getAvailableStockForItem(item, index, rows) > 0 && (!row.itemNo || item.itemNo.toLowerCase().includes(row.itemNo.toLowerCase()) || item.name.toLowerCase().includes(row.itemNo.toLowerCase()))).length === 0 && (
-                            <div className="p-2.5 text-center text-xs text-slate-400">
-                              कोई उपलब्ध / अनसोल्ड स्टॉक आइटम नहीं मिला
+                          {inventory.filter(item => (!row.itemNo || item.itemNo.toLowerCase().includes(row.itemNo.toLowerCase()) || item.name.toLowerCase().includes(row.itemNo.toLowerCase()))).length === 0 && (
+                            <div className="p-3 text-center text-xs text-slate-400">
+                              कोई सामान नहीं मिला
                             </div>
                           )}
                         </div>

@@ -436,6 +436,7 @@ export function BillingProvider({ children }) {
             isLocked: true,
             soldSerial: s,
             itemName: it.name || it.itemNo,
+            itemNo: it.itemNo,
             billNo: soldInfo.billNo,
             customerName: soldInfo.customerName,
             date: soldInfo.date
@@ -449,6 +450,7 @@ export function BillingProvider({ children }) {
             isLocked: true,
             soldSerial: it.serialNo || it.itemNo,
             itemName: it.name || it.itemNo,
+            itemNo: it.itemNo,
             billNo: soldCodeInfo.billNo,
             customerName: soldCodeInfo.customerName,
             date: soldCodeInfo.date
@@ -800,7 +802,7 @@ export function BillingProvider({ children }) {
       if (oldPur) {
         const lockInfo = isPurchaseLockedDueToSale(oldPur);
         if (lockInfo) {
-          throw new Error(`खरीद #${oldPur.purchaseNo} अपडेट नहीं की जा सकती क्योंकि इसमें शामिल सीरियल नंबर/आइटम "${lockInfo.soldSerial}" (${lockInfo.itemName}) पहले ही बिक्री बिल #${lockInfo.billNo} में बेचा जा चुका है!`);
+          throw new Error(`⚠️ खरीद #${oldPur.purchaseNo} में बदलाव नहीं किया जा सकता क्योंकि इसमें शामिल सामान (आइटम: "${lockInfo.itemName}", कोड: "${lockInfo.itemNo || ''}", सीरियल/IMEI: "${lockInfo.soldSerial}") पहले ही बिक्री बिल #${lockInfo.billNo} में बेचा जा चुका है! (Saled item not deleted)`);
         }
       }
 
@@ -982,7 +984,7 @@ export function BillingProvider({ children }) {
 
     const lockInfo = isPurchaseLockedDueToSale(pur);
     if (lockInfo) {
-      throw new Error(`खरीद #${pur.purchaseNo} डिलीट नहीं की जा सकती क्योंकि इसमें शामिल सीरियल नंबर/आइटम "${lockInfo.soldSerial}" (${lockInfo.itemName}) पहले ही बिक्री बिल #${lockInfo.billNo} में बेचा जा चुका है!`);
+      throw new Error(`⚠️ खरीद #${pur.purchaseNo} डिलीट नहीं की जा सकती क्योंकि इसमें शामिल सामान (आइटम: "${lockInfo.itemName}", कोड: "${lockInfo.itemNo || ''}", सीरियल/IMEI: "${lockInfo.soldSerial}") पहले ही बिक्री बिल #${lockInfo.billNo} में बेचा जा चुका है! (Saled item not deleted)`);
     }
 
     // Deduct stock & remove serials

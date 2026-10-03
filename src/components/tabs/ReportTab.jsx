@@ -781,12 +781,12 @@ export default function ReportTab() {
                                   onClick={() => {
                                     setNotification({
                                       type: 'error',
-                                      message: `खरीद #${pur.purchaseNo} एडिट नहीं की जा सकती क्योंकि इसमें शामिल सामान/सीरियल "${lockInfo.soldSerial}" (${lockInfo.itemName}) पहले ही बिक्री बिल #${lockInfo.billNo} में बेचा जा चुका है!`
+                                      message: `⚠️ खरीद #${pur.purchaseNo} एडिट नहीं की जा सकती क्योंकि इसमें शामिल सामान (आइटम: "${lockInfo.itemName}", कोड: "${lockInfo.itemNo || ''}", सीरियल: "${lockInfo.soldSerial}") पहले ही बिक्री बिल #${lockInfo.billNo} में बेचा जा चुका है! (Saled item not deleted)`
                                     });
-                                    setTimeout(() => setNotification(null), 6000);
+                                    setTimeout(() => setNotification(null), 7000);
                                   }}
                                   className="p-1.5 text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg cursor-pointer border border-amber-300"
-                                  title={`बिक चुका है (Locked) - सीरियल ${lockInfo.soldSerial} बिल #${lockInfo.billNo} में बिक चुका है`}
+                                  title={`बिका हुआ सामान (Saled Item Not Deleted) - बिल #${lockInfo.billNo}`}
                                 >
                                   <Lock className="w-4 h-4" />
                                 </button>
@@ -814,12 +814,12 @@ export default function ReportTab() {
                                   onClick={() => {
                                     setNotification({
                                       type: 'error',
-                                      message: `खरीद #${pur.purchaseNo} डिलीट नहीं की जा सकती क्योंकि इसमें शामिल सामान/सीरियल "${lockInfo.soldSerial}" (${lockInfo.itemName}) पहले ही बिक्री बिल #${lockInfo.billNo} में बेचा जा चुका है!`
+                                      message: `⚠️ खरीद #${pur.purchaseNo} डिलीट नहीं की जा सकती क्योंकि इसमें शामिल सामान (आइटम: "${lockInfo.itemName}", कोड: "${lockInfo.itemNo || ''}", सीरियल/IMEI: "${lockInfo.soldSerial}") पहले ही बिक्री बिल #${lockInfo.billNo} में बेचा जा चुका है! (Saled item not deleted)`
                                     });
-                                    setTimeout(() => setNotification(null), 6000);
+                                    setTimeout(() => setNotification(null), 7000);
                                   }}
                                   className="p-1.5 text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg cursor-pointer border border-rose-300"
-                                  title={`बिक चुका है (Locked) - सीरियल ${lockInfo.soldSerial} बिल #${lockInfo.billNo} में बिक चुका है`}
+                                  title={`बिका हुआ सामान (Saled Item Not Deleted) - बिल #${lockInfo.billNo}`}
                                 >
                                   <Lock className="w-4 h-4" />
                                 </button>
