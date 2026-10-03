@@ -304,7 +304,7 @@ async function reloadServerDatabase() {
   for (const sId of ['seller1', 'seller_demo']) {
     for (const item of INITIAL_INVENTORY) {
       invRows.push({
-        id: `${sId}_${item.id}`,
+        id: item.id,
         seller_id: sId,
         item_name: item.name,
         item_data: item
@@ -320,7 +320,7 @@ async function reloadServerDatabase() {
   for (const sId of ['seller1', 'seller_demo']) {
     for (const p of INITIAL_PURCHASES) {
       purRows.push({
-        id: `${sId}_${p.id}`,
+        id: p.id,
         seller_id: sId,
         purchase_data: p
       });

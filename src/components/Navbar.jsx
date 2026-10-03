@@ -51,7 +51,7 @@ export default function Navbar() {
       label: 'PURCHAGE',
       hotkey: 'F3',
       icon: Truck,
-      badge: purchases.length > 0 ? purchases.length : null
+      badge: null
     },
     {
       id: 'stock',

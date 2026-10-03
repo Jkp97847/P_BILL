@@ -8,8 +8,10 @@ import {
   deleteGstBillFromCloud,
   bulkSyncGstBillsToCloud,
   fetchGstInventoryFromCloud,
+  deleteGstInventoryFromCloud,
   bulkSyncGstInventoryToCloud,
   fetchGstPurchasesFromCloud,
+  deleteGstPurchaseFromCloud,
   bulkSyncGstPurchasesToCloud
 } from '../lib/supabaseSync.js';
 import {
@@ -975,7 +977,7 @@ export function BillingProvider({ children }) {
   };
 
   const deletePurchase = (purchaseId) => {
-    const pur = purchases.find(p => p.id === purchaseId);
+    const pur = purchases.find(p => p.id === purchaseId || p.purchaseNo === purchaseId);
     if (!pur) return;
 
     const lockInfo = isPurchaseLockedDueToSale(pur);
@@ -988,7 +990,8 @@ export function BillingProvider({ children }) {
       let updated = [...prevInv];
       if (pur.items) {
         pur.items.forEach(item => {
-          const idx = updated.findIndex(i => i.itemNo.toLowerCase() === item.itemNo.toLowerCase());
+          const cleanCode = String(item.itemNo || '').trim().toUpperCase();
+          const idx = updated.findIndex(i => String(i.itemNo || '').trim().toUpperCase() === cleanCode);
           if (idx !== -1) {
             const purchasedSerials = parseSerials(item.serialNo);
             const curSerials = updated[idx].serialNumbers || [];
@@ -1004,7 +1007,10 @@ export function BillingProvider({ children }) {
       return updated;
     });
 
-    setPurchases(prev => prev.filter(p => p.id !== purchaseId));
+    const targetId = pur.id;
+    const targetNo = pur.purchaseNo;
+    setPurchases(prev => prev.filter(p => p.id !== targetId && p.purchaseNo !== targetNo));
+    deleteGstPurchaseFromCloud(sellerId, targetId, targetNo);
   };
 
   const startEditingPurchase = (purchase) => {
@@ -1143,7 +1149,7 @@ export function BillingProvider({ children }) {
   };
 
   const deleteInventoryItem = (id) => {
-    const item = inventory.find(i => i.id === id);
+    const item = inventory.find(i => i.id === id || i.itemNo === id);
     if (item) {
       const soldCodeInfo = isItemCodeSold(item.itemNo);
       if (soldCodeInfo) {
@@ -1156,8 +1162,9 @@ export function BillingProvider({ children }) {
           throw new Error(`आइटम "${item.name}" (सीरियल: ${s}) हटाया नहीं जा सकता क्योंकि यह बिक्री बिल #${soldSerialInfo.billNo} में बेचा जा चुका है!`);
         }
       }
+      deleteGstInventoryFromCloud(sellerId, item.id, item.itemNo);
     }
-    setInventory(prev => prev.filter(i => i.id !== id));
+    setInventory(prev => prev.filter(i => i.id !== id && (!item || i.itemNo !== item.itemNo)));
   };
 
   // --------------------------------------------------------------------------

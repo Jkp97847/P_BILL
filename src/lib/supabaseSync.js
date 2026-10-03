@@ -343,8 +343,37 @@ export async function fetchGstInventoryFromCloud(sellerId) {
       .in('seller_id', ids);
     if (error) throw error;
     if (!data || data.length === 0) return null;
-    return data.map(r => r.item_data || r);
+
+    const seen = new Set();
+    const uniqueItems = [];
+    for (const r of data) {
+      const item = r.item_data || r;
+      const key = String(item.itemNo || item.id || r.id).trim().toUpperCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueItems.push({
+          ...item,
+          id: item.id || r.id
+        });
+      }
+    }
+    return uniqueItems;
   }, null);
+}
+
+export async function deleteGstInventoryFromCloud(sellerId, itemId, itemNo = null) {
+  if (!itemId && !itemNo) return;
+  return safeCall(async () => {
+    const ids = getSellerIdList(sellerId);
+    if (itemId) {
+      await supabase.from('gst_inventory').delete().in('seller_id', ids).eq('id', String(itemId));
+      await supabase.from('gst_inventory').delete().in('seller_id', ids).ilike('id', `%${itemId}`);
+      await supabase.from('gst_inventory').delete().in('seller_id', ids).filter('item_data->>id', 'eq', String(itemId));
+    }
+    if (itemNo) {
+      await supabase.from('gst_inventory').delete().in('seller_id', ids).filter('item_data->>itemNo', 'eq', String(itemNo));
+    }
+  });
 }
 
 export async function bulkSyncGstInventoryToCloud(sellerId, itemsList) {
@@ -374,8 +403,37 @@ export async function fetchGstPurchasesFromCloud(sellerId) {
       .in('seller_id', ids);
     if (error) throw error;
     if (!data || data.length === 0) return null;
-    return data.map(r => r.purchase_data || r);
+
+    const seen = new Set();
+    const uniquePurchases = [];
+    for (const r of data) {
+      const pur = r.purchase_data || r;
+      const key = String(pur.purchaseNo || pur.id || r.id).trim();
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniquePurchases.push({
+          ...pur,
+          id: pur.id || r.id
+        });
+      }
+    }
+    return uniquePurchases;
   }, null);
+}
+
+export async function deleteGstPurchaseFromCloud(sellerId, purchaseId, purchaseNo = null) {
+  if (!purchaseId && !purchaseNo) return;
+  return safeCall(async () => {
+    const ids = getSellerIdList(sellerId);
+    if (purchaseId) {
+      await supabase.from('gst_purchases').delete().in('seller_id', ids).eq('id', String(purchaseId));
+      await supabase.from('gst_purchases').delete().in('seller_id', ids).ilike('id', `%${purchaseId}`);
+      await supabase.from('gst_purchases').delete().in('seller_id', ids).filter('purchase_data->>id', 'eq', String(purchaseId));
+    }
+    if (purchaseNo) {
+      await supabase.from('gst_purchases').delete().in('seller_id', ids).filter('purchase_data->>purchaseNo', 'eq', String(purchaseNo));
+    }
+  });
 }
 
 export async function bulkSyncGstPurchasesToCloud(sellerId, purchasesList) {
