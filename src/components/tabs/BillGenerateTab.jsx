@@ -249,6 +249,14 @@ export default function BillGenerateTab() {
       }
     });
 
+    if (item.serialNo && typeof item.serialNo === 'string' && item.serialNo.trim()) {
+      const up = item.serialNo.trim().toUpperCase();
+      if (isSerialSold(up, editingBill?.id) || usedSerialsInOtherRows.has(up)) {
+        return 0;
+      }
+      return 1;
+    }
+
     if (Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0) {
       const unsoldUnusedSerials = item.serialNumbers.filter(s => {
         const up = String(s).trim().toUpperCase();
@@ -337,11 +345,16 @@ export default function BillGenerateTab() {
     });
 
     if (matched) {
-      const availableStock = getAvailableStockForItem(matched, index, rows);
+      let origQty = 0;
+      if (editingBill && editingBill.items) {
+        const orig = editingBill.items.find(it => String(it.itemNo || '').trim().toUpperCase() === cleanCode);
+        if (orig) origQty = Number(orig.qty) || 0;
+      }
+      const availableStock = getAvailableStockForItem(matched, index, rows) + origQty;
       if (availableStock <= 0) {
         setNotification({
           type: 'error',
-          message: `⚠️ आइटम "${matched.name}" (कोड: ${matched.itemNo}) का स्टॉक समाप्त हो चुका है (उपलब्ध स्टॉक: 0)! बिना स्टॉक के सेल नहीं किया जा सकता। कृपया पहले परचेज दर्ज करें।`
+          message: `⚠️ आइटम "${matched.name}" (कोड: ${matched.itemNo}) का स्टॉक समाप्त हो चुका है (उपलब्ध स्टॉक: 0)! बिना स्टॉक के आगे नहीं बढ़ सकते। कृपया पहले परचेज दर्ज करें।`
         });
         setTimeout(() => setNotification(null), 6000);
         setRows(prevRows => {
@@ -355,17 +368,6 @@ export default function BillGenerateTab() {
       setRows(prevRows => {
         const updated = [...prevRows];
         const target = { ...updated[index], itemNo: matched.itemNo };
-        const qty = Number(target.qty) > 0 ? Number(target.qty) : 1;
-        const salePrice = Number(matched.salePrice) || 0;
-        const gstRule = getItemGstRate ? getItemGstRate(matched.name) : null;
-        const gstRate = Number(matched.gstRate) || (gstRule ? gstRule.gstRate : (gstSlabs.includes(18) ? 18 : gstSlabs[0]));
-        const hsn = matched.hsn || (gstRule ? gstRule.hsn : '8517');
-        
-        const taxableUnit = Math.round((salePrice / (1 + gstRate / 100)) * 100) / 100;
-        const taxableAmount = Math.round(taxableUnit * qty * 100) / 100;
-        const totalTax = Math.round((salePrice * qty - taxableAmount) * 100) / 100;
-        const halfTax = Math.round((totalTax / 2) * 100) / 100;
-        const lineTotal = Math.round(salePrice * qty * 100) / 100;
 
         // If scanned IMEI was an exact match for one of the serials, use that serial!
         let chosenSerial = '';
@@ -375,21 +377,40 @@ export default function BillGenerateTab() {
           chosenSerial = getAutoSerialsForItem(matched, 1, prevRows, index);
         }
 
-        const isSerialized = Boolean(chosenSerial || matched.serialNo || (Array.isArray(matched.serialNumbers) && matched.serialNumbers.length > 0));
-        const finalQty = isSerialized ? 1 : qty;
+        const isSerialized = Boolean(
+          chosenSerial || 
+          matched.serialNo || 
+          (Array.isArray(matched.serialNumbers) && matched.serialNumbers.some(s => s && String(s).trim()))
+        );
+
+        // For serialized items, qty is fixed at 1.
+        // For non-serialized items, keep current row qty clamped to availableStock (min 1)
+        const rowQtyNum = Number(target.qty) > 0 ? Number(target.qty) : 1;
+        const finalQty = isSerialized ? 1 : Math.min(rowQtyNum, availableStock);
+
+        const salePrice = Number(matched.salePrice) || 0;
+        const gstRule = getItemGstRate ? getItemGstRate(matched.name) : null;
+        const gstRate = Number(matched.gstRate) || (gstRule ? gstRule.gstRate : (gstSlabs.includes(18) ? 18 : gstSlabs[0]));
+        const hsn = matched.hsn || (gstRule ? gstRule.hsn : '8517');
+        
+        const taxableUnit = Math.round((salePrice / (1 + gstRate / 100)) * 100) / 100;
+        const taxableAmount = Math.round(taxableUnit * finalQty * 100) / 100;
+        const totalTax = Math.round((salePrice * finalQty - taxableAmount) * 100) / 100;
+        const halfTax = Math.round((totalTax / 2) * 100) / 100;
+        const lineTotal = Math.round(salePrice * finalQty * 100) / 100;
 
         target.name = matched.name;
-        target.serialNo = chosenSerial;
+        target.serialNo = isSerialized ? chosenSerial : '';
         target.hsn = hsn;
         target.qty = finalQty;
         target.unit = matched.unit || 'PCS';
         target.salePriceIncGst = salePrice;
         target.rate = taxableUnit;
-        target.taxableAmount = Math.round(taxableUnit * finalQty * 100) / 100;
+        target.taxableAmount = taxableAmount;
         target.gstRate = gstRate;
-        target.cgstAmount = Math.round((halfTax * finalQty / qty) * 100) / 100;
-        target.sgstAmount = Math.round((halfTax * finalQty / qty) * 100) / 100;
-        target.total = Math.round(salePrice * finalQty * 100) / 100;
+        target.cgstAmount = halfTax;
+        target.sgstAmount = halfTax;
+        target.total = lineTotal;
 
         updated[index] = target;
         return updated;
@@ -458,11 +479,17 @@ export default function BillGenerateTab() {
       return;
     }
 
-    const availableStock = getAvailableStockForItem(item, index, rows);
+    let origQty = 0;
+    if (editingBill && editingBill.items) {
+      const orig = editingBill.items.find(it => String(it.itemNo || '').trim().toUpperCase() === cleanCode);
+      if (orig) origQty = Number(orig.qty) || 0;
+    }
+
+    const availableStock = getAvailableStockForItem(item, index, rows) + origQty;
     if (availableStock <= 0) {
       setNotification({
         type: 'error',
-        message: `⚠️ आइटम "${item.name}" (कोड: ${item.itemNo}) का स्टॉक समाप्त हो चुका है (उपलब्ध स्टॉक: 0)! कृपया पहले सप्लायर से परचेज (Purchase Entry) दर्ज करें।`
+        message: `⚠️ आइटम "${item.name}" (कोड: ${item.itemNo}) का स्टॉक समाप्त हो चुका है (उपलब्ध स्टॉक: 0)! बिना स्टॉक के आगे नहीं बढ़ सकते। कृपया पहले सप्लायर से परचेज (Purchase Entry) दर्ज करें।`
       });
       setTimeout(() => setNotification(null), 6000);
       setActiveSuggestionRow(null);
@@ -475,8 +502,16 @@ export default function BillGenerateTab() {
     }
 
     const autoSerial = getAutoSerialsForItem(item, 1, rows, index);
-    const isSerialized = Boolean(autoSerial || item.serialNo || (Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0));
-    const qty = isSerialized ? 1 : (Number(rows[index].qty) > 0 ? Number(rows[index].qty) : 1);
+    const isSerialized = Boolean(
+      autoSerial || 
+      item.serialNo || 
+      (Array.isArray(item.serialNumbers) && item.serialNumbers.some(s => s && String(s).trim()))
+    );
+
+    // For serialized items, qty is strictly 1.
+    // For non-serialized items, keep current row qty clamped to availableStock (min 1)
+    const existingQty = Number(rows[index].qty) > 0 ? Number(rows[index].qty) : 1;
+    const qty = isSerialized ? 1 : Math.min(existingQty, availableStock);
     const salePrice = Number(item.salePrice) || 0;
     const gstRule = getItemGstRate ? getItemGstRate(item.name) : null;
     const gstRate = Number(item.gstRate) || (gstRule ? gstRule.gstRate : (gstSlabs.includes(18) ? 18 : gstSlabs[0]));
@@ -493,7 +528,7 @@ export default function BillGenerateTab() {
       updated[index] = {
         ...updated[index],
         itemNo: item.itemNo,
-        serialNo: autoSerial,
+        serialNo: isSerialized ? autoSerial : '',
         name: item.name,
         hsn: hsn,
         qty: qty,
@@ -519,8 +554,50 @@ export default function BillGenerateTab() {
       const updated = [...prev];
       const target = { ...updated[index], [field]: value };
 
-      const qty = Math.max(1, parseFloat(field === 'qty' ? value : target.qty) || 1);
-      const gstRate = parseFloat(field === 'gstRate' ? value : target.gstRate) || 0;
+      const cleanItemNo = String(target.itemNo || '').trim().toUpperCase();
+      const invMatch = inventory.find(it => String(it.itemNo || '').trim().toUpperCase() === cleanItemNo);
+
+      const isItemSerialized = Boolean(
+        (target.serialNo && target.serialNo.trim()) ||
+        (invMatch && (
+          (invMatch.serialNo && String(invMatch.serialNo).trim()) ||
+          (Array.isArray(invMatch.serialNumbers) && invMatch.serialNumbers.some(s => s && String(s).trim()))
+        ))
+      );
+
+      // If item quantity is changed, validate against available stock
+      if (field === 'qty') {
+        if (isItemSerialized) {
+          target.qty = 1;
+        } else if (invMatch) {
+          let origQty = 0;
+          if (editingBill && editingBill.items) {
+            const orig = editingBill.items.find(it => String(it.itemNo || '').trim().toUpperCase() === cleanItemNo);
+            if (orig) origQty = Number(orig.qty) || 0;
+          }
+          const avail = getAvailableStockForItem(invMatch, index, prev) + origQty;
+
+          if (value === '') {
+            target.qty = '';
+          } else {
+            const entered = parseInt(value, 10);
+            if (isNaN(entered) || entered <= 0) {
+              target.qty = 1;
+            } else if (avail > 0 && entered > avail) {
+              setNotification({
+                type: 'warning',
+                message: `⚠️ आइटम "${invMatch.name}" का उपलब्ध स्टॉक केवल ${avail} है! आप इससे अधिक मात्रा नहीं बेच सकते।`
+              });
+              setTimeout(() => setNotification(null), 5000);
+              target.qty = avail;
+            } else {
+              target.qty = entered;
+            }
+          }
+        } else {
+          target.qty = value === '' ? '' : Math.max(1, parseInt(value, 10) || 1);
+        }
+      }
 
       // Auto-fill GST Rate based on Item Name
       if (field === 'name' && value && value.trim()) {
@@ -533,55 +610,31 @@ export default function BillGenerateTab() {
         }
       }
 
-      // If item quantity is changed, validate against available stock
-      if (field === 'qty') {
-        const cleanItemNo = String(target.itemNo || '').trim().toUpperCase();
-        const invMatch = inventory.find(it => String(it.itemNo || '').trim().toUpperCase() === cleanItemNo);
-        if (invMatch) {
-          const avail = getAvailableStockForItem(invMatch, index, prev);
-          if (avail <= 0) {
-            setNotification({
-              type: 'error',
-              message: `⚠️ आइटम "${invMatch.name}" स्टॉक में उपलब्ध नहीं है (उपलब्ध: 0)!`
-            });
-            setTimeout(() => setNotification(null), 5000);
-            target.qty = 0;
-          } else if (parseFloat(value) > avail) {
-            setNotification({
-              type: 'error',
-              message: `⚠️ आइटम "${invMatch.name}" का उपलब्ध स्टॉक केवल ${avail} है! आप ${value} मात्रा नहीं बेच सकते।`
-            });
-            setTimeout(() => setNotification(null), 5000);
-            target.qty = avail;
-          }
-        }
-        if ((target.serialNo && target.serialNo.trim()) || (invMatch && (invMatch.serialNo || (invMatch.serialNumbers && invMatch.serialNumbers.length > 0)))) {
-          target.qty = 1;
-        }
-      }
+      const effectiveQty = isItemSerialized ? 1 : Math.max(1, parseFloat(target.qty) || 1);
+      const gstRate = parseFloat(field === 'gstRate' ? value : target.gstRate) || 0;
 
       if (field === 'salePriceIncGst' || field === 'qty' || field === 'gstRate' || field === 'name') {
         const salePrice = parseFloat(field === 'salePriceIncGst' ? value : target.salePriceIncGst) || 0;
-        const total = Math.round(salePrice * qty * 100) / 100;
+        const total = Math.round(salePrice * effectiveQty * 100) / 100;
         const taxableTotal = Math.round((total / (1 + gstRate / 100)) * 100) / 100;
         const totalGst = Math.round((total - taxableTotal) * 100) / 100;
         const halfGst = Math.round((totalGst / 2) * 100) / 100;
 
-        target.rate = qty > 0 ? (taxableTotal / qty).toFixed(2) : 0;
+        target.rate = effectiveQty > 0 ? (taxableTotal / effectiveQty).toFixed(2) : 0;
         target.taxableAmount = taxableTotal;
         target.cgstAmount = halfGst;
         target.sgstAmount = halfGst;
         target.total = total;
       } else if (field === 'rate') {
         const rate = parseFloat(value) || 0;
-        const taxableAmount = Math.round(rate * qty * 100) / 100;
+        const taxableAmount = Math.round(rate * effectiveQty * 100) / 100;
         const totalGst = Math.round((taxableAmount * gstRate / 100) * 100) / 100;
         const halfGst = Math.round((totalGst / 2) * 100) / 100;
         target.taxableAmount = taxableAmount;
         target.cgstAmount = halfGst;
         target.sgstAmount = halfGst;
         target.total = Math.round((taxableAmount + totalGst) * 100) / 100;
-        target.salePriceIncGst = qty > 0 ? (target.total / qty).toFixed(2) : 0;
+        target.salePriceIncGst = effectiveQty > 0 ? (target.total / effectiveQty).toFixed(2) : 0;
       }
 
       updated[index] = target;
@@ -1341,6 +1394,22 @@ export default function BillGenerateTab() {
                 const isOutOfStock = invItem ? invItem.stockQty <= 0 : false;
                 const isNotFound = row.itemNo.trim() !== '' && !invItem;
 
+                const isItemSerialized = Boolean(
+                  (row.serialNo && row.serialNo.trim()) ||
+                  (invItem && (
+                    (invItem.serialNo && String(invItem.serialNo).trim()) ||
+                    (Array.isArray(invItem.serialNumbers) && invItem.serialNumbers.some(s => s && String(s).trim()))
+                  ))
+                );
+
+                let rowOrigQty = 0;
+                if (editingBill && editingBill.items && invItem) {
+                  const orig = editingBill.items.find(it => String(it.itemNo || '').trim().toUpperCase() === String(row.itemNo || '').trim().toUpperCase());
+                  if (orig) rowOrigQty = Number(orig.qty) || 0;
+                }
+                const rowAvailableStock = invItem ? (getAvailableStockForItem(invItem, index, rows) + rowOrigQty) : 0;
+                const isQtyDisabled = !invItem || isItemSerialized;
+
                 const active = isRowActive(row);
                 const isMissingCode = active && !row.itemNo.trim();
                 const isMissingName = active && !row.name.trim();
@@ -1384,6 +1453,12 @@ export default function BillGenerateTab() {
                           onChange={(e) => handleItemNoChange(index, e.target.value)}
                           onFocus={() => setActiveSuggestionRow(index)}
                           onBlur={() => handleItemNoBlur(index)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleItemNoBlur(index);
+                            }
+                          }}
                           placeholder="कोड *"
                           className={`w-full px-2 py-1.5 font-mono text-xs font-bold uppercase border rounded focus:ring-2 focus:ring-indigo-500 outline-hidden ${
                             isMissingCode ? 'border-rose-400 bg-rose-50/50 text-rose-900 ring-1 ring-rose-300' : 'border-slate-300 bg-white'
@@ -1524,8 +1599,18 @@ export default function BillGenerateTab() {
                           disabled
                           tabIndex={-1}
                           value={row.serialNo || ''}
-                          placeholder="सीरियल की स्वतः आएगी (Auto)"
-                          title="पुष्टि: सीरियल / IMEI की आइटम कोड के अनुसार स्वतः भरती है (Disabled)"
+                          placeholder={
+                            !invItem 
+                              ? 'सीरियल स्वतः आएगी' 
+                              : isItemSerialized 
+                              ? 'सीरियल की स्वतः आएगी (Auto)' 
+                              : '- गैर-सीरियल (बिना सीरियल) -'
+                          }
+                          title={
+                            isItemSerialized
+                              ? 'पुष्टि: सीरियल / IMEI की आइटम कोड के अनुसार स्वतः भरती है (Disabled)'
+                              : 'यह सामान गैर-सीरियल (बिना सीरियल की) का है'
+                          }
                           className={`w-full px-2 py-1.5 font-mono text-xs uppercase border rounded outline-hidden select-none cursor-not-allowed ${
                             hasRowSerialError ? 'border-rose-500 bg-rose-50 text-rose-900 font-bold' : 'border-slate-300 bg-slate-100 text-slate-800'
                           }`}
@@ -1535,6 +1620,12 @@ export default function BillGenerateTab() {
                           <div className="text-[10px] text-rose-600 font-bold flex items-center gap-0.5 mt-0.5 leading-tight">
                             <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
                             <span className="truncate">{hasRowSerialError}</span>
+                          </div>
+                        )}
+                        {/* Non-serialized indicator */}
+                        {invItem && !isItemSerialized && (
+                          <div className="text-[9px] text-slate-400 font-medium mt-0.5 text-center truncate">
+                            सीरियल आवश्यक नहीं
                           </div>
                         )}
                       </div>
@@ -1551,23 +1642,50 @@ export default function BillGenerateTab() {
                       />
                     </td>
 
-                    {/* Qty (Locked to 1 if serialized item) */}
+                    {/* Qty (Enabled for non-serialized items up to stock limit, locked to 1 if serialized) */}
                     <td className="py-2 px-2">
-                      <input
-                        type="number"
-                        min="1"
-                        readOnly={Boolean(row.serialNo && row.serialNo.trim())}
-                        disabled={Boolean(row.serialNo && row.serialNo.trim())}
-                        value={row.serialNo && row.serialNo.trim() ? 1 : row.qty}
-                        onChange={(e) => handleCellChange(index, 'qty', e.target.value)}
-                        placeholder="1 *"
-                        title={row.serialNo && row.serialNo.trim() ? 'सीरियल वाले सामान का 1 कोड = 1 पीस (मात्रा 1 फिक्स)' : 'मात्रा दर्ज करें'}
-                        className={`w-full px-1.5 py-1.5 text-center font-mono font-bold text-xs border rounded outline-hidden ${
-                          row.serialNo && row.serialNo.trim()
-                            ? 'bg-slate-100 text-slate-700 border-slate-300 cursor-not-allowed select-none'
-                            : isMissingQty ? 'border-rose-400 bg-rose-50/50 text-rose-900 ring-1 ring-rose-300' : 'border-slate-300 bg-white'
-                        }`}
-                      />
+                      <div>
+                        <input
+                          type="number"
+                          min="1"
+                          max={isItemSerialized ? 1 : (rowAvailableStock > 0 ? rowAvailableStock : 1)}
+                          readOnly={isQtyDisabled}
+                          disabled={isQtyDisabled}
+                          value={isItemSerialized ? 1 : row.qty}
+                          onChange={(e) => handleCellChange(index, 'qty', e.target.value)}
+                          onBlur={() => {
+                            if (!isItemSerialized && (!row.qty || Number(row.qty) < 1)) {
+                              handleCellChange(index, 'qty', 1);
+                            }
+                          }}
+                          placeholder="1 *"
+                          title={
+                            !invItem
+                              ? 'पहले आइटम कोड चुनें'
+                              : isItemSerialized
+                              ? 'सीरियल / IMEI वाले सामान का 1 कोड = 1 पीस (मात्रा 1 फिक्स)'
+                              : `मात्रा दर्ज करें (उपलब्ध स्टॉक: ${rowAvailableStock})`
+                          }
+                          className={`w-full px-1.5 py-1.5 text-center font-mono font-bold text-xs border rounded outline-hidden transition-all ${
+                            isQtyDisabled
+                              ? 'bg-slate-100 text-slate-700 border-slate-300 cursor-not-allowed select-none'
+                              : isMissingQty
+                              ? 'border-rose-400 bg-rose-50/50 text-rose-900 ring-2 ring-rose-300'
+                              : 'border-indigo-400 bg-white text-indigo-900 focus:ring-2 focus:ring-indigo-500 shadow-2xs'
+                          }`}
+                        />
+                        {/* Live Stock info badge under Qty */}
+                        {invItem && !isItemSerialized && (
+                          <div className="text-[9px] text-indigo-700 font-bold mt-0.5 text-center truncate">
+                            अधिकतम: {rowAvailableStock}
+                          </div>
+                        )}
+                        {invItem && isItemSerialized && (
+                          <div className="text-[9px] text-slate-500 font-medium mt-0.5 text-center">
+                            1 पीस फिक्स
+                          </div>
+                        )}
+                      </div>
                     </td>
 
                     {/* Sale Price Inclusive of GST */}
