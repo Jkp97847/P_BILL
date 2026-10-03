@@ -227,6 +227,15 @@ export default function FormatEditTab() {
   const handleSave = (e) => {
     e?.preventDefault();
 
+    // 0. Firm Name validation (COMPULSORY)
+    if (!formData.firmName || !formData.firmName.trim()) {
+      const msg = 'कृपया दुकान / फर्म का नाम (Firm Name) दर्ज करना अनिवार्य है!';
+      showToast('error', msg, 'आवश्यक फील्ड');
+      setNotification(`⚠️ ${msg}`);
+      setTimeout(() => setNotification(null), 5000);
+      return;
+    }
+
     // 1. Mobile 1 validation (if provided)
     if (formData.mobile && formData.mobile.trim()) {
       const mobRes = validateMobile(formData.mobile, false, 'मुख्य मोबाइल नंबर');

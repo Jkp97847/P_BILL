@@ -82,42 +82,59 @@ export const INITIAL_INVENTORY = [
     costPrice: 15500,
     salePrice: 17999,
     gstRate: 18,
-    stockQty: 8,
-    minAlertQty: 3,
+    stockQty: 1,
+    minAlertQty: 1,
     unit: 'PCS',
-    serialNumbers: [
-      '864920194820101',
-      '864920194820102',
-      '864920194820103',
-      '864920194820104',
-      '864920194820105',
-      '864920194820106',
-      '864920194820107',
-      '864920194820108'
-    ]
+    serialNo: '864920194820101',
+    serialNumbers: ['864920194820101']
   },
   {
     id: 'itm-2',
     itemNo: 'MOB-002',
+    name: 'Redmi Note 13 Pro 5G (8GB/256GB)',
+    category: 'Mobile',
+    hsn: '8517',
+    costPrice: 15500,
+    salePrice: 17999,
+    gstRate: 18,
+    stockQty: 1,
+    minAlertQty: 1,
+    unit: 'PCS',
+    serialNo: '864920194820102',
+    serialNumbers: ['864920194820102']
+  },
+  {
+    id: 'itm-3',
+    itemNo: 'MOB-003',
     name: 'Realme Narzo 70 Turbo (6GB/128GB)',
     category: 'Mobile',
     hsn: '8517',
     costPrice: 11200,
     salePrice: 13499,
     gstRate: 18,
-    stockQty: 5,
-    minAlertQty: 2,
+    stockQty: 1,
+    minAlertQty: 1,
     unit: 'PCS',
-    serialNumbers: [
-      '869201938201201',
-      '869201938201202',
-      '869201938201203',
-      '869201938201204',
-      '869201938201205'
-    ]
+    serialNo: '869201938201201',
+    serialNumbers: ['869201938201201']
   },
   {
-    id: 'itm-3',
+    id: 'itm-4',
+    itemNo: 'MOB-004',
+    name: 'Realme Narzo 70 Turbo (6GB/128GB)',
+    category: 'Mobile',
+    hsn: '8517',
+    costPrice: 11200,
+    salePrice: 13499,
+    gstRate: 18,
+    stockQty: 1,
+    minAlertQty: 1,
+    unit: 'PCS',
+    serialNo: '869201938201202',
+    serialNumbers: ['869201938201202']
+  },
+  {
+    id: 'itm-5',
     itemNo: 'BAT-101',
     name: 'Samsung M31 / F41 6000mAh Battery (Original)',
     category: 'Battery',
@@ -125,35 +142,44 @@ export const INITIAL_INVENTORY = [
     costPrice: 420,
     salePrice: 850,
     gstRate: 18,
-    stockQty: 18,
-    minAlertQty: 5,
+    stockQty: 1,
+    minAlertQty: 1,
     unit: 'PCS',
-    serialNumbers: [
-      'SN-BAT-M31-01',
-      'SN-BAT-M31-02',
-      'SN-BAT-M31-03',
-      'SN-BAT-M31-04'
-    ]
+    serialNo: 'SN-BAT-M31-01',
+    serialNumbers: ['SN-BAT-M31-01']
   },
   {
-    id: 'itm-4',
+    id: 'itm-6',
     itemNo: 'BAT-102',
+    name: 'Samsung M31 / F41 6000mAh Battery (Original)',
+    category: 'Battery',
+    hsn: '8506',
+    costPrice: 420,
+    salePrice: 850,
+    gstRate: 18,
+    stockQty: 1,
+    minAlertQty: 1,
+    unit: 'PCS',
+    serialNo: 'SN-BAT-M31-02',
+    serialNumbers: ['SN-BAT-M31-02']
+  },
+  {
+    id: 'itm-7',
+    itemNo: 'BAT-103',
     name: 'Redmi Note 9 / 10 Pro BN53 Battery',
     category: 'Battery',
     hsn: '8506',
     costPrice: 380,
     salePrice: 750,
     gstRate: 18,
-    stockQty: 14,
-    minAlertQty: 5,
+    stockQty: 1,
+    minAlertQty: 1,
     unit: 'PCS',
-    serialNumbers: [
-      'SN-BAT-BN53-01',
-      'SN-BAT-BN53-02'
-    ]
+    serialNo: 'SN-BAT-BN53-01',
+    serialNumbers: ['SN-BAT-BN53-01']
   },
   {
-    id: 'itm-5',
+    id: 'itm-8',
     itemNo: 'EAR-201',
     name: 'boAt Rockerz 255 Pro+ Bluetooth Earphone',
     category: 'Earphone',
@@ -161,17 +187,14 @@ export const INITIAL_INVENTORY = [
     costPrice: 650,
     salePrice: 1199,
     gstRate: 18,
-    stockQty: 22,
-    minAlertQty: 5,
+    stockQty: 1,
+    minAlertQty: 1,
     unit: 'PCS',
-    serialNumbers: [
-      'SN-BOAT-255-01',
-      'SN-BOAT-255-02',
-      'SN-BOAT-255-03'
-    ]
+    serialNo: 'SN-BOAT-255-01',
+    serialNumbers: ['SN-BOAT-255-01']
   },
   {
-    id: 'itm-6',
+    id: 'itm-9',
     itemNo: 'EAR-202',
     name: 'OnePlus Bullets Wireless Z2 ANC Earphone',
     category: 'Earphone',
@@ -179,16 +202,14 @@ export const INITIAL_INVENTORY = [
     costPrice: 1350,
     salePrice: 1999,
     gstRate: 18,
-    stockQty: 9,
-    minAlertQty: 3,
+    stockQty: 1,
+    minAlertQty: 1,
     unit: 'PCS',
-    serialNumbers: [
-      'SN-OP-Z2-01',
-      'SN-OP-Z2-02'
-    ]
+    serialNo: 'SN-OP-Z2-01',
+    serialNumbers: ['SN-OP-Z2-01']
   },
   {
-    id: 'itm-7',
+    id: 'itm-10',
     itemNo: 'CHG-301',
     name: '65W SuperVOOC / Dart Fast Charger with Cable',
     category: 'Charger',
@@ -199,10 +220,11 @@ export const INITIAL_INVENTORY = [
     stockQty: 16,
     minAlertQty: 4,
     unit: 'PCS',
+    serialNo: '',
     serialNumbers: []
   },
   {
-    id: 'itm-8',
+    id: 'itm-11',
     itemNo: 'ACC-401',
     name: '11D Super Curved Tempered Glass Guard',
     category: 'Accessories',
@@ -213,6 +235,7 @@ export const INITIAL_INVENTORY = [
     stockQty: 60,
     minAlertQty: 10,
     unit: 'PCS',
+    serialNo: '',
     serialNumbers: []
   }
 ];
@@ -235,9 +258,21 @@ export const INITIAL_PURCHASES = [
         costPrice: 15500,
         salePrice: 17999,
         gstRate: 18,
-        qty: 10,
-        serialNo: '864920194820101, 864920194820102, 864920194820103, 864920194820104, 864920194820105, 864920194820106, 864920194820107, 864920194820108, 864920194820109, 864920194820110',
-        total: 182900
+        qty: 1,
+        serialNo: '864920194820101',
+        total: 18290
+      },
+      {
+        itemNo: 'MOB-002',
+        name: 'Redmi Note 13 Pro 5G (8GB/256GB)',
+        category: 'Mobile',
+        hsn: '8517',
+        costPrice: 15500,
+        salePrice: 17999,
+        gstRate: 18,
+        qty: 1,
+        serialNo: '864920194820102',
+        total: 18290
       },
       {
         itemNo: 'EAR-201',
@@ -247,14 +282,14 @@ export const INITIAL_PURCHASES = [
         costPrice: 650,
         salePrice: 1199,
         gstRate: 18,
-        qty: 25,
-        serialNo: 'SN-BOAT-255-01, SN-BOAT-255-02, SN-BOAT-255-03',
-        total: 19175
+        qty: 1,
+        serialNo: 'SN-BOAT-255-01',
+        total: 767
       }
     ],
-    totalTaxable: 171250,
-    totalGst: 30825,
-    grandTotal: 202075,
+    totalTaxable: 31650,
+    totalGst: 5697,
+    grandTotal: 37347,
     createdAt: '2026-09-10T10:30:00.000Z'
   },
   {
@@ -274,9 +309,21 @@ export const INITIAL_PURCHASES = [
         costPrice: 420,
         salePrice: 850,
         gstRate: 18,
-        qty: 20,
-        serialNo: 'SN-BAT-M31-01, SN-BAT-M31-02, SN-BAT-M31-03, SN-BAT-M31-04',
-        total: 9912
+        qty: 1,
+        serialNo: 'SN-BAT-M31-01',
+        total: 495.6
+      },
+      {
+        itemNo: 'BAT-102',
+        name: 'Samsung M31 / F41 6000mAh Battery (Original)',
+        category: 'Battery',
+        hsn: '8506',
+        costPrice: 420,
+        salePrice: 850,
+        gstRate: 18,
+        qty: 1,
+        serialNo: 'SN-BAT-M31-02',
+        total: 495.6
       },
       {
         itemNo: 'CHG-301',
@@ -286,14 +333,14 @@ export const INITIAL_PURCHASES = [
         costPrice: 380,
         salePrice: 799,
         gstRate: 18,
-        qty: 20,
+        qty: 16,
         serialNo: '',
-        total: 8968
+        total: 7174.4
       }
     ],
-    totalTaxable: 16000,
-    totalGst: 2880,
-    grandTotal: 18880,
+    totalTaxable: 6920,
+    totalGst: 1245.6,
+    grandTotal: 8165.6,
     createdAt: '2026-09-12T14:15:00.000Z'
   }
 ];
@@ -313,7 +360,7 @@ export const INITIAL_GST_BILLS = [
     items: [
       {
         id: 'row-1',
-        itemNo: 'MOB-001',
+        itemNo: 'MOB-000',
         serialNo: '864920194820100',
         name: 'Redmi Note 13 Pro 5G (8GB/256GB)',
         hsn: '8517',
@@ -330,7 +377,7 @@ export const INITIAL_GST_BILLS = [
       {
         id: 'row-2',
         itemNo: 'ACC-401',
-        serialNo: 'SN-GRD-401-99',
+        serialNo: '',
         name: '11D Super Curved Tempered Glass Guard',
         hsn: '3926',
         qty: 1,

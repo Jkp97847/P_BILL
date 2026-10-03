@@ -1,5 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import {
+  fetchShopSettingsFromCloud,
+  saveShopSettingsToCloud,
+  fetchRechargeBillsFromCloud,
+  saveRechargeBillToCloud,
+  deleteRechargeBillFromCloud,
+  bulkSyncRechargeBillsToCloud
+} from '../../lib/supabaseSync.js';
 
 const RechargeContext = createContext();
 
@@ -98,9 +106,36 @@ export function RechargeProvider({ children }) {
 
   const [settings, setSettings] = useState(() => getInitialSettings());
 
-  // Reload settings if effective seller changes
+  // Reload settings and transactions if active seller changes + Background Supabase Sync
   useEffect(() => {
-    setSettings(getInitialSettings());
+    let isMounted = true;
+    const initialSettings = getInitialSettings();
+    setSettings(initialSettings);
+
+    (async () => {
+      try {
+        const [cloudSettings, cloudBills] = await Promise.all([
+          fetchShopSettingsFromCloud(activeUserId, 'recharge'),
+          fetchRechargeBillsFromCloud(activeUserId)
+        ]);
+
+        if (!isMounted) return;
+
+        if (cloudSettings) {
+          setSettings(prev => ({ ...prev, ...cloudSettings }));
+        } else if (initialSettings && initialSettings.shopName) {
+          saveShopSettingsToCloud(activeUserId, 'recharge', initialSettings);
+        }
+
+        if (cloudBills && cloudBills.length > 0) {
+          setTransactions(cloudBills);
+        }
+      } catch (err) {
+        console.warn('Supabase Recharge sync warning:', err);
+      }
+    })();
+
+    return () => { isMounted = false; };
   }, [activeUserId]);
 
   // Load transactions for effective seller
@@ -163,7 +198,7 @@ export function RechargeProvider({ children }) {
     }
   }, [transactions, storageKeyBills]);
 
-  // Save settings to localStorage
+  // Save settings to localStorage and Supabase Cloud
   const updateSettings = (newSettings) => {
     setSettings(prev => {
       const updated = {
@@ -176,6 +211,7 @@ export function RechargeProvider({ children }) {
       } catch {
         // ignore
       }
+      saveShopSettingsToCloud(activeUserId, 'recharge', updated);
       return updated;
     });
   };
@@ -192,12 +228,14 @@ export function RechargeProvider({ children }) {
     };
 
     setTransactions(prev => [newBill, ...prev]);
+    saveRechargeBillToCloud(activeUserId, newBill);
     return newBill;
   };
 
   // Delete transaction
   const deleteTransaction = (id) => {
     setTransactions(prev => prev.filter(t => t.id !== id));
+    deleteRechargeBillFromCloud(id);
   };
 
   // Clear all transactions for active seller

@@ -1,5 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import {
+  fetchShopSettingsFromCloud,
+  saveShopSettingsToCloud,
+  fetchNonGstBillsFromCloud,
+  saveNonGstBillToCloud,
+  deleteNonGstBillFromCloud,
+  bulkSyncNonGstBillsToCloud
+} from '../../lib/supabaseSync.js';
 
 const BillingContext = createContext();
 
@@ -298,6 +306,7 @@ export function BillingProvider({ children }) {
 
   // Sync state whenever the active user logs in, out, or switches accounts!
   useEffect(() => {
+    let isMounted = true;
     const userSettings = getInitialSettingsForUser(activeUserId, effectiveUser || currentUser);
     const userBills = getInitialBillsForUser(activeUserId, effectiveUser || currentUser);
     setSettings(userSettings);
@@ -308,6 +317,43 @@ export function BillingProvider({ children }) {
     } else {
       setActivePrintBill(null);
     }
+
+    // Background fetch from Supabase Cloud
+    (async () => {
+      try {
+        const [cloudSettings, cloudBills] = await Promise.all([
+          fetchShopSettingsFromCloud(activeUserId, 'nongst'),
+          fetchNonGstBillsFromCloud(activeUserId)
+        ]);
+
+        if (!isMounted) return;
+
+        if (cloudSettings) {
+          setSettings(prev => ({
+            ...prev,
+            ...cloudSettings,
+            isConfigured: cloudSettings.isConfigured !== undefined ? Boolean(cloudSettings.isConfigured) : prev.isConfigured,
+            displayOptions: {
+              ...prev.displayOptions,
+              ...(cloudSettings.displayOptions || {})
+            }
+          }));
+        } else if (userSettings && userSettings.firmName) {
+          saveShopSettingsToCloud(activeUserId, 'nongst', userSettings);
+        }
+
+        if (cloudBills && cloudBills.length > 0) {
+          setBills(cloudBills);
+          setActivePrintBill(cloudBills[0]);
+        } else if (userBills && userBills.length > 0) {
+          bulkSyncNonGstBillsToCloud(activeUserId, userBills);
+        }
+      } catch (err) {
+        console.warn('Supabase Non-GST sync warning:', err);
+      }
+    })();
+
+    return () => { isMounted = false; };
   }, [activeUserId]);
 
   // Save Settings to scoped LocalStorage with cross-sync for seller1
@@ -320,8 +366,9 @@ export function BillingProvider({ children }) {
         localStorage.setItem('billing_app_settings_seller1', JSON.stringify(settings));
         localStorage.setItem('billing_app_settings', JSON.stringify(settings));
       }
+      saveShopSettingsToCloud(activeUserId, 'nongst', settings);
     } catch (e) {
-      console.error('Failed to save scoped settings to localStorage', e);
+      console.error('Failed to save scoped settings to storage/cloud', e);
     }
   }, [settings, activeUserId, effectiveUser]);
 
@@ -342,15 +389,19 @@ export function BillingProvider({ children }) {
 
   // Update Settings
   const updateSettings = (newSettings) => {
-    setSettings(prev => ({
-      ...prev,
-      ...newSettings,
-      isConfigured: newSettings.isConfigured !== undefined ? Boolean(newSettings.isConfigured) : prev.isConfigured,
-      displayOptions: {
-        ...prev.displayOptions,
-        ...(newSettings.displayOptions || {})
-      }
-    }));
+    setSettings(prev => {
+      const updated = {
+        ...prev,
+        ...newSettings,
+        isConfigured: newSettings.isConfigured !== undefined ? Boolean(newSettings.isConfigured) : prev.isConfigured,
+        displayOptions: {
+          ...prev.displayOptions,
+          ...(newSettings.displayOptions || {})
+        }
+      };
+      saveShopSettingsToCloud(activeUserId, 'nongst', updated);
+      return updated;
+    });
   };
 
   // Change Active Theme
@@ -361,18 +412,21 @@ export function BillingProvider({ children }) {
   // Reset Settings to Defaults
   const resetSettings = () => {
     const targetUser = effectiveUser || currentUser;
+    let defs;
     if (targetUser?.profile) {
-      setSettings({
+      defs = {
         ...DEFAULT_SETTINGS,
         firmName: targetUser.profile.shopName || DEFAULT_SETTINGS.firmName,
         ownerName: targetUser.profile.ownerName || targetUser.profile.name || DEFAULT_SETTINGS.ownerName,
         mobile: targetUser.profile.mobile || DEFAULT_SETTINGS.mobile,
         address: targetUser.profile.address || DEFAULT_SETTINGS.address,
         email: targetUser.profile.email || DEFAULT_SETTINGS.email
-      });
+      };
     } else {
-      setSettings(DEFAULT_SETTINGS);
+      defs = DEFAULT_SETTINGS;
     }
+    setSettings(defs);
+    saveShopSettingsToCloud(activeUserId, 'nongst', defs);
   };
 
   // Generate Next Bill Number
@@ -406,11 +460,18 @@ export function BillingProvider({ children }) {
       setBills(prev => [finalBill, ...prev]);
 
       // Increment sequence number automatically
-      setSettings(prev => ({
-        ...prev,
-        nextBillSeq: (prev.nextBillSeq || 1001) + 1
-      }));
+      setSettings(prev => {
+        const next = {
+          ...prev,
+          nextBillSeq: (prev.nextBillSeq || 1001) + 1
+        };
+        saveShopSettingsToCloud(activeUserId, 'nongst', next);
+        return next;
+      });
     }
+
+    // Save to Supabase Cloud
+    saveNonGstBillToCloud(activeUserId, finalBill);
 
     return finalBill;
   };
@@ -418,6 +479,7 @@ export function BillingProvider({ children }) {
   // Delete Bill
   const deleteBill = (id) => {
     setBills(prev => prev.filter(b => b.id !== id));
+    deleteNonGstBillFromCloud(id);
     if (editingBill && editingBill.id === id) {
       setEditingBill(null);
     }

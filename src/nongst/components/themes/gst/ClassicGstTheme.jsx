@@ -147,7 +147,7 @@ export default function ClassicGstTheme({ bill, settings }) {
               const sNo = idx + 1;
               if (item) {
                 return (
-                  <tr key={item.id || idx} className="h-7 hover:bg-slate-50 transition-colors">
+                  <tr key={item.id || idx} className="h-7 print:h-6 hover:bg-slate-50 transition-colors">
                     <td className="border border-slate-400 px-2 py-0.5 text-center font-bold text-slate-900">{sNo}</td>
                     <td className="border border-slate-400 px-3 py-0.5 font-medium text-slate-900">{item.name || '—'}</td>
                     <td className="border border-slate-400 px-2 py-0.5 text-center font-semibold">{item.qty}</td>
@@ -157,7 +157,7 @@ export default function ClassicGstTheme({ bill, settings }) {
                 );
               }
               return (
-                <tr key={`empty-${idx}`} className="h-7">
+                <tr key={`empty-${idx}`} className="h-7 print:h-5">
                   <td className="border border-slate-400 px-2 py-0.5 text-center font-semibold text-slate-600">{sNo}</td>
                   <td className="border border-slate-400 px-3 py-0.5">&nbsp;</td>
                   <td className="border border-slate-400 px-2 py-0.5 text-center">&nbsp;</td>
@@ -224,9 +224,9 @@ export default function ClassicGstTheme({ bill, settings }) {
       )}
 
       {/* 7. TERMS & GREEN DIGITAL SIGNATURE */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 pt-1.5 border-t-2 border-slate-900 items-end">
+      <div className="grid grid-cols-1 md:grid-cols-12 print:grid-cols-12 gap-3 print:gap-2 pt-1.5 border-t-2 border-slate-900 items-end bill-signatory break-inside-avoid print:break-inside-avoid">
         {/* Terms */}
-        <div className={`${disp.showSignatory ? 'md:col-span-7' : 'md:col-span-12'} bg-slate-50 border border-slate-300 rounded p-2 text-[11px] text-slate-700`}>
+        <div className={`${disp.showSignatory ? 'md:col-span-7 print:col-span-7' : 'md:col-span-12 print:col-span-12'} bg-slate-50 border border-slate-300 rounded p-2 print:p-1.5 text-[11px] print:text-[9.5px] text-slate-700`}>
           {disp.showTerms && (
             <>
               <p className="font-bold text-slate-900 mb-1 uppercase tracking-wide flex items-center gap-1">
@@ -254,7 +254,7 @@ export default function ClassicGstTheme({ bill, settings }) {
 
         {/* Green Digital Verified Signature Box (Right Aligned) */}
         {disp.showSignatory && (
-          <div className="md:col-span-5 flex flex-col items-end justify-end text-right p-0.5">
+          <div className="md:col-span-5 print:col-span-5 flex flex-col items-end justify-end text-right p-0.5 print:p-0">
             <DigitalSignatureBadge
               ownerName={currentSettings.ownerName}
               firmName={currentSettings.firmName}
@@ -266,7 +266,7 @@ export default function ClassicGstTheme({ bill, settings }) {
       </div>
 
       {/* Footer thank you */}
-      <div className="text-center text-[10px] text-slate-500 mt-2 pt-1 border-t border-dotted border-slate-300">
+      <div className="text-center text-[10px] print:text-[8.5px] text-slate-500 mt-2 print:mt-1 pt-1 border-t border-dotted border-slate-300 break-inside-avoid">
         धन्यवाद! आपका दिन शुभ हो। फिर पधारें! (Thank you, Visit Again!)
       </div>
     </div>

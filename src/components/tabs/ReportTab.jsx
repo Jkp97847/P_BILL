@@ -15,6 +15,8 @@ import {
   X, 
   CheckCircle, 
   AlertTriangle,
+  AlertCircle,
+  Lock,
   Receipt,
   Truck,
   Layers,
@@ -38,6 +40,7 @@ export default function ReportTab() {
     startEditingBill,
     deletePurchase,
     startEditingPurchase,
+    isPurchaseLockedDueToSale,
     triggerPrint,
     triggerPrintReport,
     triggerPrintPurchase,
@@ -213,15 +216,35 @@ export default function ReportTab() {
     if (!deleteConfirm) return;
 
     if (deleteConfirm.type === 'bill') {
-      deleteSaleBill(deleteConfirm.id);
-      setNotification(`बिल ${deleteConfirm.label} हटा दिया गया और बेचा गया स्टॉक इन्वेंट्री में वापस जुड़ गया!`);
+      try {
+        deleteSaleBill(deleteConfirm.id);
+        setNotification({
+          type: 'success',
+          message: `जीएसटी बिल #${deleteConfirm.label} सफलतापूर्वक हटा दिया गया और बेचा गया स्टॉक इन्वेंट्री में वापस जुड़ गया!`
+        });
+      } catch (err) {
+        setNotification({
+          type: 'error',
+          message: `बिल डिलीट त्रुटि: ${err.message}`
+        });
+      }
     } else if (deleteConfirm.type === 'purchase') {
-      deletePurchase(deleteConfirm.id);
-      setNotification(`खरीद वाउचर ${deleteConfirm.label} हटा दिया गया और खरीदा गया स्टॉक इन्वेंट्री से घटा दिया गया!`);
+      try {
+        deletePurchase(deleteConfirm.id);
+        setNotification({
+          type: 'success',
+          message: `खरीद प्रविष्टि #${deleteConfirm.label} सफलतापूर्वक हटा दी गई और खरीदा गया स्टॉक इन्वेंट्री से घटा दिया गया!`
+        });
+      } catch (err) {
+        setNotification({
+          type: 'error',
+          message: err.message
+        });
+      }
     }
 
     setDeleteConfirm(null);
-    setTimeout(() => setNotification(null), 4000);
+    setTimeout(() => setNotification(null), 5000);
   };
 
   // Import Handler
@@ -235,12 +258,21 @@ export default function ReportTab() {
         const json = JSON.parse(event.target.result);
         const res = importData(json);
         if (res.success) {
-          setNotification('बैकअप सफलतापूर्वक लोड हो गया!');
+          setNotification({
+            type: 'success',
+            message: 'बैकअप सफलतापूर्वक लोड हो गया!'
+          });
         } else {
-          setNotification('डेटा लोड करने में त्रुटि: ' + res.error);
+          setNotification({
+            type: 'error',
+            message: 'डेटा लोड करने में त्रुटि: ' + res.error
+          });
         }
       } catch {
-        setNotification('अमान्य JSON फ़ाइल प्रारूप!');
+        setNotification({
+          type: 'error',
+          message: 'अमान्य JSON फ़ाइल प्रारूप!'
+        });
       }
       setTimeout(() => setNotification(null), 4000);
     };
@@ -252,9 +284,19 @@ export default function ReportTab() {
     <div className="space-y-6">
       {/* 1. Notification */}
       {notification && (
-        <div className="bg-emerald-600 text-white p-4 rounded-xl flex items-center gap-2 shadow-md">
-          <CheckCircle className="w-5 h-5" />
-          <span className="font-bold text-sm">{notification}</span>
+        <div className={`p-4 rounded-xl flex items-center gap-3 shadow-md animate-in slide-in-from-top duration-200 ${
+          (typeof notification === 'object' && notification.type === 'error')
+            ? 'bg-rose-600 text-white'
+            : 'bg-emerald-600 text-white'
+        }`}>
+          {(typeof notification === 'object' && notification.type === 'error') ? (
+            <AlertCircle className="w-5 h-5 shrink-0" />
+          ) : (
+            <CheckCircle className="w-5 h-5 shrink-0" />
+          )}
+          <span className="font-bold text-sm">
+            {typeof notification === 'object' ? notification.message : notification}
+          </span>
         </div>
       )}
 
@@ -658,7 +700,19 @@ export default function ReportTab() {
                         {index + 1}
                       </td>
                       <td className="py-3 px-3 font-mono font-bold text-amber-900">
-                        {pur.purchaseNo}
+                        <div>{pur.purchaseNo}</div>
+                        {(() => {
+                          const lockInfo = isPurchaseLockedDueToSale(pur);
+                          if (lockInfo) {
+                            return (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] bg-emerald-50 text-emerald-800 border border-emerald-300 px-1 py-0.2 rounded font-sans font-bold mt-0.5">
+                                <Lock className="w-2.5 h-2.5 text-emerald-700" />
+                                <span>बिका हुआ (Locked)</span>
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                       </td>
                       <td className="py-3 px-3 font-medium text-slate-700">
                         {pur.date}
@@ -717,24 +771,71 @@ export default function ReportTab() {
                           >
                             <Printer className="w-4 h-4" />
                           </button>
-                          {/* Edit */}
-                          <button
-                            type="button"
-                            onClick={() => startEditingPurchase(pur)}
-                            className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer"
-                            title="खरीद एडिट करें"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                          {/* Delete */}
-                          <button
-                            type="button"
-                            onClick={() => setDeleteConfirm({ type: 'purchase', id: pur.id, label: pur.purchaseNo })}
-                            className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
-                            title="खरीद हटाएं (स्टॉक कम होगा)"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {/* Edit (Locked if item already sold) */}
+                          {(() => {
+                            const lockInfo = isPurchaseLockedDueToSale(pur);
+                            if (lockInfo) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setNotification({
+                                      type: 'error',
+                                      message: `खरीद #${pur.purchaseNo} एडिट नहीं की जा सकती क्योंकि इसमें शामिल सामान/सीरियल "${lockInfo.soldSerial}" (${lockInfo.itemName}) पहले ही बिक्री बिल #${lockInfo.billNo} में बेचा जा चुका है!`
+                                    });
+                                    setTimeout(() => setNotification(null), 6000);
+                                  }}
+                                  className="p-1.5 text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg cursor-pointer border border-amber-300"
+                                  title={`बिक चुका है (Locked) - सीरियल ${lockInfo.soldSerial} बिल #${lockInfo.billNo} में बिक चुका है`}
+                                >
+                                  <Lock className="w-4 h-4" />
+                                </button>
+                              );
+                            }
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => startEditingPurchase(pur)}
+                                className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer"
+                                title="खरीद एडिट करें"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                            );
+                          })()}
+
+                          {/* Delete (Locked if item already sold) */}
+                          {(() => {
+                            const lockInfo = isPurchaseLockedDueToSale(pur);
+                            if (lockInfo) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setNotification({
+                                      type: 'error',
+                                      message: `खरीद #${pur.purchaseNo} डिलीट नहीं की जा सकती क्योंकि इसमें शामिल सामान/सीरियल "${lockInfo.soldSerial}" (${lockInfo.itemName}) पहले ही बिक्री बिल #${lockInfo.billNo} में बेचा जा चुका है!`
+                                    });
+                                    setTimeout(() => setNotification(null), 6000);
+                                  }}
+                                  className="p-1.5 text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg cursor-pointer border border-rose-300"
+                                  title={`बिक चुका है (Locked) - सीरियल ${lockInfo.soldSerial} बिल #${lockInfo.billNo} में बिक चुका है`}
+                                >
+                                  <Lock className="w-4 h-4" />
+                                </button>
+                              );
+                            }
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirm({ type: 'purchase', id: pur.id, label: pur.purchaseNo })}
+                                className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
+                                title="खरीद हटाएं (स्टॉक कम होगा)"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            );
+                          })()}
                         </div>
                       </td>
                     </tr>

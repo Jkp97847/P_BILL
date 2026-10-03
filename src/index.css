@@ -161,7 +161,8 @@
   #printable-bill .bill-footer,
   #printable-bill .bill-summary,
   #printable-bill .bill-bank-qr,
-  #printable-bill .bill-signatory {
+  #printable-bill .bill-signatory,
+  #printable-bill .grid:has(.border-emerald-600) {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }

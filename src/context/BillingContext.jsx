@@ -1,6 +1,18 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import {
+  fetchShopSettingsFromCloud,
+  saveShopSettingsToCloud,
+  fetchGstBillsFromCloud,
+  saveGstBillToCloud,
+  deleteGstBillFromCloud,
+  bulkSyncGstBillsToCloud,
+  fetchGstInventoryFromCloud,
+  bulkSyncGstInventoryToCloud,
+  fetchGstPurchasesFromCloud,
+  bulkSyncGstPurchasesToCloud
+} from '../lib/supabaseSync.js';
+import {
   INITIAL_SETTINGS,
   INITIAL_INVENTORY,
   INITIAL_PURCHASES,
@@ -160,6 +172,7 @@ export function BillingProvider({ children }) {
 
   // Reload state when sellerId changes
   useEffect(() => {
+    let isMounted = true;
     const loadedSettings = loadSellerSettings(sellerId, effectiveSeller);
     const loadedInventory = loadSellerInventory(sellerId);
     const loadedPurchases = loadSellerPurchases(sellerId);
@@ -174,12 +187,56 @@ export function BillingProvider({ children }) {
     setActiveTab('generate');
     setEditingBill(null);
     setEditingPurchase(null);
+
+    // Background fetch from Supabase Cloud
+    (async () => {
+      try {
+        const [cloudSettings, cloudInv, cloudPurchases, cloudBills] = await Promise.all([
+          fetchShopSettingsFromCloud(sellerId, 'gst'),
+          fetchGstInventoryFromCloud(sellerId),
+          fetchGstPurchasesFromCloud(sellerId),
+          fetchGstBillsFromCloud(sellerId)
+        ]);
+
+        if (!isMounted) return;
+
+        if (cloudSettings) {
+          setSettings(prev => ({ ...prev, ...cloudSettings }));
+        } else if (loadedSettings && loadedSettings.firmName) {
+          saveShopSettingsToCloud(sellerId, 'gst', loadedSettings);
+        }
+
+        if (cloudInv && cloudInv.length > 0) {
+          setInventory(cloudInv);
+        } else if (loadedInventory && loadedInventory.length > 0) {
+          bulkSyncGstInventoryToCloud(sellerId, loadedInventory);
+        }
+
+        if (cloudPurchases && cloudPurchases.length > 0) {
+          setPurchases(cloudPurchases);
+        } else if (loadedPurchases && loadedPurchases.length > 0) {
+          bulkSyncGstPurchasesToCloud(sellerId, loadedPurchases);
+        }
+
+        if (cloudBills && cloudBills.length > 0) {
+          setGstBills(cloudBills);
+          setActivePrintBill(cloudBills[0]);
+        } else if (loadedBills && loadedBills.length > 0) {
+          bulkSyncGstBillsToCloud(sellerId, loadedBills);
+        }
+      } catch (err) {
+        console.warn('Supabase GST sync warning:', err);
+      }
+    })();
+
+    return () => { isMounted = false; };
   }, [sellerId]);
 
-  // Sync to LocalStorage specific to this seller
+  // Sync to LocalStorage & Supabase Cloud
   useEffect(() => {
     try {
       localStorage.setItem(`mobile_billing_settings_${sellerId}`, JSON.stringify(settings));
+      saveShopSettingsToCloud(sellerId, 'gst', settings);
     } catch (e) {
       console.error('Failed to save settings:', e);
     }
@@ -188,6 +245,7 @@ export function BillingProvider({ children }) {
   useEffect(() => {
     try {
       localStorage.setItem(`mobile_billing_inventory_${sellerId}`, JSON.stringify(inventory));
+      bulkSyncGstInventoryToCloud(sellerId, inventory);
     } catch (e) {
       console.error('Failed to save inventory:', e);
     }
@@ -196,6 +254,7 @@ export function BillingProvider({ children }) {
   useEffect(() => {
     try {
       localStorage.setItem(`mobile_billing_purchases_${sellerId}`, JSON.stringify(purchases));
+      bulkSyncGstPurchasesToCloud(sellerId, purchases);
     } catch (e) {
       console.error('Failed to save purchases:', e);
     }
@@ -204,6 +263,7 @@ export function BillingProvider({ children }) {
   useEffect(() => {
     try {
       localStorage.setItem(`mobile_billing_gst_bills_${sellerId}`, JSON.stringify(gstBills));
+      bulkSyncGstBillsToCloud(sellerId, gstBills);
     } catch (e) {
       console.error('Failed to save bills:', e);
     }
@@ -331,10 +391,78 @@ export function BillingProvider({ children }) {
     return null;
   };
 
-  // Check if serial has already been purchased
+  // Check if an item code has already been sold
+  const isItemCodeSold = (itemNo, excludeBillId = null) => {
+    if (!itemNo || !itemNo.trim()) return null;
+    const clean = itemNo.trim().toUpperCase();
+    const inv = inventory.find(i => String(i.itemNo || '').trim().toUpperCase() === clean);
+    if (inv && Number(inv.stockQty) <= 0) {
+      for (const b of gstBills) {
+        if (excludeBillId && b.id === excludeBillId) continue;
+        for (const it of (b.items || [])) {
+          if (String(it.itemNo || '').trim().toUpperCase() === clean) {
+            return {
+              isSold: true,
+              billNo: b.billNo,
+              date: b.date,
+              customerName: b.customerName,
+              itemName: it.name
+            };
+          }
+        }
+      }
+      return {
+        isSold: true,
+        billNo: 'SOLD',
+        date: '-',
+        customerName: '-',
+        itemName: inv.name
+      };
+    }
+    return null;
+  };
+
+  // Check if any item/serial in a purchase has already been sold in a sale bill
+  const isPurchaseLockedDueToSale = (purchase) => {
+    if (!purchase || !purchase.items) return null;
+    for (const it of purchase.items) {
+      const serials = parseSerials(it.serialNo);
+      for (const s of serials) {
+        const soldInfo = isSerialSold(s);
+        if (soldInfo) {
+          return {
+            isLocked: true,
+            soldSerial: s,
+            itemName: it.name || it.itemNo,
+            billNo: soldInfo.billNo,
+            customerName: soldInfo.customerName,
+            date: soldInfo.date
+          };
+        }
+      }
+      if (it.itemNo) {
+        const soldCodeInfo = isItemCodeSold(it.itemNo);
+        if (soldCodeInfo) {
+          return {
+            isLocked: true,
+            soldSerial: it.serialNo || it.itemNo,
+            itemName: it.name || it.itemNo,
+            billNo: soldCodeInfo.billNo,
+            customerName: soldCodeInfo.customerName,
+            date: soldCodeInfo.date
+          };
+        }
+      }
+    }
+    return null;
+  };
+
+  // Check if serial has already been purchased, exists in inventory, or was in bills
   const isSerialPurchased = (serialNo, excludePurchaseId = null) => {
     if (!serialNo || !serialNo.trim()) return null;
     const clean = serialNo.trim().toUpperCase();
+
+    // 1. Check all past purchases
     for (const p of purchases) {
       if (excludePurchaseId && p.id === excludePurchaseId) continue;
       for (const it of (p.items || [])) {
@@ -342,7 +470,7 @@ export function BillingProvider({ children }) {
         if (serials.includes(clean)) {
           return {
             isPurchased: true,
-            purchaseNo: p.purchaseNo,
+            purchaseNo: p.purchaseNo || p.id,
             date: p.date,
             supplierName: p.supplierName,
             itemName: it.name
@@ -350,6 +478,37 @@ export function BillingProvider({ children }) {
         }
       }
     }
+
+    // 2. Check all current inventory items
+    for (const inv of inventory) {
+      const invSerials = Array.isArray(inv.serialNumbers) ? inv.serialNumbers : parseSerials(inv.serialNo);
+      if (invSerials.some(s => String(s).trim().toUpperCase() === clean)) {
+        return {
+          isPurchased: true,
+          purchaseNo: inv.itemNo || 'STOCK',
+          date: 'दुकान स्टॉक',
+          supplierName: 'स्टॉक इन्वेंटरी',
+          itemName: inv.name
+        };
+      }
+    }
+
+    // 3. Check past sales bills so sold items cannot be re-purchased with same serial
+    for (const b of gstBills) {
+      for (const it of (b.items || [])) {
+        const serials = parseSerials(it.serialNo);
+        if (serials.includes(clean)) {
+          return {
+            isPurchased: true,
+            purchaseNo: b.invoiceNo || b.billNo || 'BILL',
+            date: b.date,
+            supplierName: `बिक्री बिल #${b.invoiceNo || b.billNo}`,
+            itemName: it.name
+          };
+        }
+      }
+    }
+
     return null;
   };
 
@@ -392,17 +551,17 @@ export function BillingProvider({ children }) {
         return {
           isValid: false,
           type: 'already_purchased',
-          error: `यह सीरियल/IMEI (${clean}) पहले ही खरीद #${purInfo.purchaseNo} (${purInfo.date}, सप्लायर: ${purInfo.supplierName}) में दर्ज है!`,
+          error: `यह सीरियल/IMEI (${clean}) पहले ही खरीद #${purInfo.purchaseNo} (${purInfo.supplierName || 'स्टॉक'}) में दर्ज है! एक बार खरीदा हुआ सामान दोबारा नहीं खरीदा जा सकता।`,
           details: purInfo
         };
       }
       // Check in stock only if not editing current purchase
-      const inStock = inventory.some(inv => (inv.serialNumbers || []).some(s => s.toUpperCase() === clean));
+      const inStock = inventory.some(inv => (inv.serialNumbers || []).some(s => String(s).toUpperCase() === clean));
       if (inStock && !currentDocId) {
         return {
           isValid: false,
           type: 'already_in_stock',
-          error: `यह सीरियल/IMEI (${clean}) पहले से दुकान के स्टॉक में मौजूद है!`
+          error: `यह सीरियल/IMEI (${clean}) पहले से दुकान के स्टॉक में मौजूद है! दोबारा खरीद वर्जित है।`
         };
       }
     }
@@ -410,14 +569,14 @@ export function BillingProvider({ children }) {
     return { isValid: true };
   };
 
-  // Auto-generate Item Code: Category prefix + Auto Next Digit
+  // Auto-generate Item Code: Category prefix + Auto Next Digit (3-digit zero-padded)
   const generateNextItemCode = (name = '', category = 'Mobile', otherRows = [], preferCategory = true) => {
     let prefix = '';
     const catMap = {
       'Mobile': 'MOB',
       'Battery': 'BAT',
       'Earphone': 'EAR',
-      'Charger': 'CHA',
+      'Charger': 'CHG',
       'Accessories': 'ACC',
       'Spare Parts': 'PAR',
       'Other': 'ITM'
@@ -446,11 +605,11 @@ export function BillingProvider({ children }) {
       });
     });
     (otherRows || []).forEach(r => {
-      if (r.itemNo) existingCodes.add(r.itemNo.toUpperCase());
+      if (r && r.itemNo) existingCodes.add(r.itemNo.toUpperCase());
     });
 
     const regex = new RegExp(`^${prefix}[-_]?(\\d+)$`, 'i');
-    let maxSeq = 100;
+    let maxSeq = 0;
     existingCodes.forEach(code => {
       const match = code.match(regex);
       if (match && match[1]) {
@@ -462,7 +621,7 @@ export function BillingProvider({ children }) {
     });
 
     const nextSeq = maxSeq + 1;
-    return `${prefix}-${nextSeq}`;
+    return `${prefix}-${String(nextSeq).padStart(3, '0')}`;
   };
 
   // --------------------------------------------------------------------------
@@ -481,31 +640,45 @@ export function BillingProvider({ children }) {
         if (oldBill && oldBill.items) {
           oldBill.items.forEach(oldItem => {
             if (!oldItem.itemNo) return;
-            const idx = updated.findIndex(i => i.itemNo.toLowerCase() === oldItem.itemNo.toLowerCase());
+            const cleanCode = String(oldItem.itemNo).trim().toUpperCase();
+            const idx = updated.findIndex(i => String(i.itemNo || '').trim().toUpperCase() === cleanCode);
             if (idx !== -1) {
-              const oldSerials = parseSerials(oldItem.serialNo);
-              const curSerials = updated[idx].serialNumbers || [];
-              const restored = Array.from(new Set([...curSerials, ...oldSerials]));
-              updated[idx] = {
-                ...updated[idx],
-                stockQty: updated[idx].stockQty + (Number(oldItem.qty) || 0),
-                serialNumbers: restored
-              };
+              const cleanSerial = String(oldItem.serialNo || '').trim().toUpperCase();
+              if (cleanSerial) {
+                updated[idx] = {
+                  ...updated[idx],
+                  stockQty: 1,
+                  serialNo: cleanSerial,
+                  serialNumbers: [cleanSerial]
+                };
+              } else {
+                updated[idx] = {
+                  ...updated[idx],
+                  stockQty: updated[idx].stockQty + (Number(oldItem.qty) || 0)
+                };
+              }
             }
           });
         }
-        // Deduct new bill stock quantities & remove sold serials
+        // Deduct new bill stock quantities & mark sold serials
         billData.items.forEach(newItem => {
           if (!newItem.itemNo) return;
-          const idx = updated.findIndex(i => i.itemNo.toLowerCase() === newItem.itemNo.toLowerCase());
+          const cleanCode = String(newItem.itemNo).trim().toUpperCase();
+          const idx = updated.findIndex(i => String(i.itemNo || '').trim().toUpperCase() === cleanCode);
           if (idx !== -1) {
-            const soldSerials = parseSerials(newItem.serialNo);
-            const remainingSerials = (updated[idx].serialNumbers || []).filter(s => !soldSerials.includes(s.toUpperCase()));
-            updated[idx] = {
-              ...updated[idx],
-              stockQty: Math.max(0, updated[idx].stockQty - (Number(newItem.qty) || 0)),
-              serialNumbers: remainingSerials
-            };
+            const cleanSerial = String(newItem.serialNo || '').trim().toUpperCase();
+            if (cleanSerial || (Array.isArray(updated[idx].serialNumbers) && updated[idx].serialNumbers.length > 0)) {
+              updated[idx] = {
+                ...updated[idx],
+                stockQty: 0,
+                serialNumbers: []
+              };
+            } else {
+              updated[idx] = {
+                ...updated[idx],
+                stockQty: Math.max(0, updated[idx].stockQty - (Number(newItem.qty) || 0))
+              };
+            }
           }
         });
         return updated;
@@ -517,20 +690,27 @@ export function BillingProvider({ children }) {
       };
       setGstBills(prev => prev.map(b => (b.id === billData.id ? savedRecord : b)));
     } else {
-      // Deduct stock for new bill & remove sold serials
+      // Deduct stock for new bill & mark sold items
       setInventory(prevInv => {
         let updated = [...prevInv];
         billData.items.forEach(item => {
           if (!item.itemNo) return;
-          const idx = updated.findIndex(i => i.itemNo.toLowerCase() === item.itemNo.toLowerCase());
+          const cleanCode = String(item.itemNo).trim().toUpperCase();
+          const idx = updated.findIndex(i => String(i.itemNo || '').trim().toUpperCase() === cleanCode);
           if (idx !== -1) {
-            const soldSerials = parseSerials(item.serialNo);
-            const remainingSerials = (updated[idx].serialNumbers || []).filter(s => !soldSerials.includes(s.toUpperCase()));
-            updated[idx] = {
-              ...updated[idx],
-              stockQty: Math.max(0, updated[idx].stockQty - (Number(item.qty) || 0)),
-              serialNumbers: remainingSerials
-            };
+            const cleanSerial = String(item.serialNo || '').trim().toUpperCase();
+            if (cleanSerial || (Array.isArray(updated[idx].serialNumbers) && updated[idx].serialNumbers.length > 0)) {
+              updated[idx] = {
+                ...updated[idx],
+                stockQty: 0,
+                serialNumbers: []
+              };
+            } else {
+              updated[idx] = {
+                ...updated[idx],
+                stockQty: Math.max(0, updated[idx].stockQty - (Number(item.qty) || 0))
+              };
+            }
           }
         });
         return updated;
@@ -553,6 +733,9 @@ export function BillingProvider({ children }) {
       }));
     }
 
+    // Direct cloud sync to Supabase
+    saveGstBillToCloud(sellerId, savedRecord);
+
     setEditingBill(null);
     return savedRecord;
   };
@@ -567,16 +750,23 @@ export function BillingProvider({ children }) {
       if (bill.items) {
         bill.items.forEach(item => {
           if (!item.itemNo) return;
-          const idx = updated.findIndex(i => i.itemNo.toLowerCase() === item.itemNo.toLowerCase());
+          const cleanCode = String(item.itemNo).trim().toUpperCase();
+          const idx = updated.findIndex(i => String(i.itemNo || '').trim().toUpperCase() === cleanCode);
           if (idx !== -1) {
-            const soldSerials = parseSerials(item.serialNo);
-            const curSerials = updated[idx].serialNumbers || [];
-            const restored = Array.from(new Set([...curSerials, ...soldSerials]));
-            updated[idx] = {
-              ...updated[idx],
-              stockQty: updated[idx].stockQty + (Number(item.qty) || 0),
-              serialNumbers: restored
-            };
+            const cleanSerial = String(item.serialNo || '').trim().toUpperCase();
+            if (cleanSerial) {
+              updated[idx] = {
+                ...updated[idx],
+                stockQty: 1,
+                serialNo: cleanSerial,
+                serialNumbers: [cleanSerial]
+              };
+            } else {
+              updated[idx] = {
+                ...updated[idx],
+                stockQty: updated[idx].stockQty + (Number(item.qty) || 0)
+              };
+            }
           }
         });
       }
@@ -584,6 +774,7 @@ export function BillingProvider({ children }) {
     });
 
     setGstBills(prev => prev.filter(b => b.id !== billId));
+    deleteGstBillFromCloud(billId);
   };
 
   const startEditingBill = (bill) => {
@@ -596,7 +787,7 @@ export function BillingProvider({ children }) {
   };
 
   // --------------------------------------------------------------------------
-  // PURCHASE ENTRY MANAGEMENT (With Stock Auto-Addition & Reversal)
+  // PURCHASE ENTRY MANAGEMENT (Strict 1:1 Item Code = 1 Serial Key)
   // --------------------------------------------------------------------------
   const savePurchase = (purchaseData) => {
     const isEdit = Boolean(purchaseData.id && purchases.some(p => p.id === purchaseData.id));
@@ -604,59 +795,95 @@ export function BillingProvider({ children }) {
 
     if (isEdit) {
       const oldPur = purchases.find(p => p.id === purchaseData.id);
+      if (oldPur) {
+        const lockInfo = isPurchaseLockedDueToSale(oldPur);
+        if (lockInfo) {
+          throw new Error(`खरीद #${oldPur.purchaseNo} अपडेट नहीं की जा सकती क्योंकि इसमें शामिल सीरियल नंबर/आइटम "${lockInfo.soldSerial}" (${lockInfo.itemName}) पहले ही बिक्री बिल #${lockInfo.billNo} में बेचा जा चुका है!`);
+        }
+      }
 
       setInventory(prevInv => {
         let updated = [...prevInv];
-        // Revert old purchase quantities & remove old serials
+        // Revert old purchase quantities
         if (oldPur && oldPur.items) {
           oldPur.items.forEach(oldItem => {
-            const idx = updated.findIndex(i => i.itemNo.toLowerCase() === oldItem.itemNo.toLowerCase());
+            const cleanCode = String(oldItem.itemNo || '').trim().toUpperCase();
+            const idx = updated.findIndex(i => String(i.itemNo || '').trim().toUpperCase() === cleanCode);
             if (idx !== -1) {
-              const oldSerials = parseSerials(oldItem.serialNo);
-              const curSerials = updated[idx].serialNumbers || [];
-              const remaining = curSerials.filter(s => !oldSerials.includes(s.toUpperCase()));
-              updated[idx] = {
-                ...updated[idx],
-                stockQty: Math.max(0, updated[idx].stockQty - (Number(oldItem.qty) || 0)),
-                serialNumbers: remaining
-              };
+              const cleanSerial = String(oldItem.serialNo || '').trim().toUpperCase();
+              if (cleanSerial) {
+                updated[idx] = {
+                  ...updated[idx],
+                  stockQty: 0,
+                  serialNumbers: []
+                };
+              } else {
+                updated[idx] = {
+                  ...updated[idx],
+                  stockQty: Math.max(0, updated[idx].stockQty - (Number(oldItem.qty) || 0))
+                };
+              }
             }
           });
         }
-        // Add new purchase quantities & add new serials
+        // Add new purchase quantities (1:1 for serialized)
         purchaseData.items.forEach(newItem => {
-          const idx = updated.findIndex(i => i.itemNo.toLowerCase() === newItem.itemNo.toLowerCase());
-          const newSerials = parseSerials(newItem.serialNo);
-          if (idx !== -1) {
-            const curSerials = updated[idx].serialNumbers || [];
-            const merged = Array.from(new Set([...curSerials, ...newSerials]));
-            updated[idx] = {
-              ...updated[idx],
-              name: newItem.name || updated[idx].name,
-              category: newItem.category || updated[idx].category,
-              hsn: newItem.hsn || updated[idx].hsn,
-              costPrice: Number(newItem.costPrice) || updated[idx].costPrice,
-              salePrice: Number(newItem.salePrice) || updated[idx].salePrice,
-              gstRate: Number(newItem.gstRate) || updated[idx].gstRate,
-              stockQty: updated[idx].stockQty + (Number(newItem.qty) || 0),
-              serialNumbers: merged
-            };
-          } else {
-            // Add new item into inventory
-            updated.push({
-              id: `itm-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-              itemNo: newItem.itemNo.toUpperCase(),
-              name: newItem.name,
-              category: newItem.category || 'General',
-              hsn: newItem.hsn || '8517',
-              costPrice: Number(newItem.costPrice) || 0,
-              salePrice: Number(newItem.salePrice) || 0,
-              gstRate: Number(newItem.gstRate) || 18,
-              stockQty: Number(newItem.qty) || 0,
-              minAlertQty: 3,
+          const cleanCode = String(newItem.itemNo || '').trim().toUpperCase();
+          const cleanSerial = String(newItem.serialNo || '').trim().toUpperCase();
+          const idx = updated.findIndex(i => String(i.itemNo || '').trim().toUpperCase() === cleanCode);
+
+          if (cleanSerial) {
+            const itemRecord = {
+              id: idx !== -1 ? updated[idx].id : `itm-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+              itemNo: cleanCode,
+              name: newItem.name || (idx !== -1 ? updated[idx].name : ''),
+              category: newItem.category || (idx !== -1 ? updated[idx].category : 'Mobile'),
+              hsn: newItem.hsn || (idx !== -1 ? updated[idx].hsn : '8517'),
+              costPrice: Number(newItem.costPrice) || (idx !== -1 ? updated[idx].costPrice : 0),
+              salePrice: Number(newItem.salePrice) || (idx !== -1 ? updated[idx].salePrice : 0),
+              gstRate: Number(newItem.gstRate) !== undefined ? Number(newItem.gstRate) : (idx !== -1 ? updated[idx].gstRate : 18),
+              stockQty: 1,
+              minAlertQty: 1,
               unit: 'PCS',
-              serialNumbers: newSerials
-            });
+              serialNo: cleanSerial,
+              serialNumbers: [cleanSerial]
+            };
+            if (idx !== -1) {
+              updated[idx] = itemRecord;
+            } else {
+              updated.push(itemRecord);
+            }
+          } else {
+            if (idx !== -1) {
+              updated[idx] = {
+                ...updated[idx],
+                name: newItem.name || updated[idx].name,
+                category: newItem.category || updated[idx].category,
+                hsn: newItem.hsn || updated[idx].hsn,
+                costPrice: Number(newItem.costPrice) || updated[idx].costPrice,
+                salePrice: Number(newItem.salePrice) || updated[idx].salePrice,
+                gstRate: Number(newItem.gstRate) || updated[idx].gstRate,
+                stockQty: updated[idx].stockQty + (Number(newItem.qty) || 0),
+                serialNo: '',
+                serialNumbers: []
+              };
+            } else {
+              updated.push({
+                id: `itm-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+                itemNo: cleanCode,
+                name: newItem.name,
+                category: newItem.category || 'General',
+                hsn: newItem.hsn || '8517',
+                costPrice: Number(newItem.costPrice) || 0,
+                salePrice: Number(newItem.salePrice) || 0,
+                gstRate: Number(newItem.gstRate) || 18,
+                stockQty: Number(newItem.qty) || 0,
+                minAlertQty: 3,
+                unit: 'PCS',
+                serialNo: '',
+                serialNumbers: []
+              });
+            }
           }
         });
         return updated;
@@ -668,41 +895,66 @@ export function BillingProvider({ children }) {
       };
       setPurchases(prev => prev.map(p => (p.id === purchaseData.id ? savedRecord : p)));
     } else {
-      // New purchase: update/insert inventory items & add serials
+      // New purchase: update/insert inventory items (1:1 for serialized)
       setInventory(prevInv => {
         let updated = [...prevInv];
         purchaseData.items.forEach(newItem => {
-          const idx = updated.findIndex(i => i.itemNo.toLowerCase() === newItem.itemNo.toLowerCase());
-          const newSerials = parseSerials(newItem.serialNo);
-          if (idx !== -1) {
-            const curSerials = updated[idx].serialNumbers || [];
-            const merged = Array.from(new Set([...curSerials, ...newSerials]));
-            updated[idx] = {
-              ...updated[idx],
-              name: newItem.name || updated[idx].name,
-              category: newItem.category || updated[idx].category,
-              hsn: newItem.hsn || updated[idx].hsn,
-              costPrice: Number(newItem.costPrice) || updated[idx].costPrice,
-              salePrice: Number(newItem.salePrice) || updated[idx].salePrice,
-              gstRate: Number(newItem.gstRate) || updated[idx].gstRate,
-              stockQty: updated[idx].stockQty + (Number(newItem.qty) || 0),
-              serialNumbers: merged
-            };
-          } else {
-            updated.push({
-              id: `itm-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-              itemNo: newItem.itemNo.toUpperCase(),
-              name: newItem.name,
-              category: newItem.category || 'General',
-              hsn: newItem.hsn || '8517',
-              costPrice: Number(newItem.costPrice) || 0,
-              salePrice: Number(newItem.salePrice) || 0,
-              gstRate: Number(newItem.gstRate) || 18,
-              stockQty: Number(newItem.qty) || 0,
-              minAlertQty: 3,
+          const cleanCode = String(newItem.itemNo || '').trim().toUpperCase();
+          const cleanSerial = String(newItem.serialNo || '').trim().toUpperCase();
+          const idx = updated.findIndex(i => String(i.itemNo || '').trim().toUpperCase() === cleanCode);
+
+          if (cleanSerial) {
+            const itemRecord = {
+              id: idx !== -1 ? updated[idx].id : `itm-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+              itemNo: cleanCode,
+              name: newItem.name || (idx !== -1 ? updated[idx].name : ''),
+              category: newItem.category || (idx !== -1 ? updated[idx].category : 'Mobile'),
+              hsn: newItem.hsn || (idx !== -1 ? updated[idx].hsn : '8517'),
+              costPrice: Number(newItem.costPrice) || (idx !== -1 ? updated[idx].costPrice : 0),
+              salePrice: Number(newItem.salePrice) || (idx !== -1 ? updated[idx].salePrice : 0),
+              gstRate: Number(newItem.gstRate) !== undefined ? Number(newItem.gstRate) : (idx !== -1 ? updated[idx].gstRate : 18),
+              stockQty: 1,
+              minAlertQty: 1,
               unit: 'PCS',
-              serialNumbers: newSerials
-            });
+              serialNo: cleanSerial,
+              serialNumbers: [cleanSerial]
+            };
+            if (idx !== -1) {
+              updated[idx] = itemRecord;
+            } else {
+              updated.push(itemRecord);
+            }
+          } else {
+            if (idx !== -1) {
+              updated[idx] = {
+                ...updated[idx],
+                name: newItem.name || updated[idx].name,
+                category: newItem.category || updated[idx].category,
+                hsn: newItem.hsn || updated[idx].hsn,
+                costPrice: Number(newItem.costPrice) || updated[idx].costPrice,
+                salePrice: Number(newItem.salePrice) || updated[idx].salePrice,
+                gstRate: Number(newItem.gstRate) || updated[idx].gstRate,
+                stockQty: updated[idx].stockQty + (Number(newItem.qty) || 0),
+                serialNo: '',
+                serialNumbers: []
+              };
+            } else {
+              updated.push({
+                id: `itm-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+                itemNo: cleanCode,
+                name: newItem.name,
+                category: newItem.category || 'General',
+                hsn: newItem.hsn || '8517',
+                costPrice: Number(newItem.costPrice) || 0,
+                salePrice: Number(newItem.salePrice) || 0,
+                gstRate: Number(newItem.gstRate) || 18,
+                stockQty: Number(newItem.qty) || 0,
+                minAlertQty: 3,
+                unit: 'PCS',
+                serialNo: '',
+                serialNumbers: []
+              });
+            }
           }
         });
         return updated;
@@ -725,6 +977,11 @@ export function BillingProvider({ children }) {
   const deletePurchase = (purchaseId) => {
     const pur = purchases.find(p => p.id === purchaseId);
     if (!pur) return;
+
+    const lockInfo = isPurchaseLockedDueToSale(pur);
+    if (lockInfo) {
+      throw new Error(`खरीद #${pur.purchaseNo} डिलीट नहीं की जा सकती क्योंकि इसमें शामिल सीरियल नंबर/आइटम "${lockInfo.soldSerial}" (${lockInfo.itemName}) पहले ही बिक्री बिल #${lockInfo.billNo} में बेचा जा चुका है!`);
+    }
 
     // Deduct stock & remove serials
     setInventory(prevInv => {
@@ -886,6 +1143,20 @@ export function BillingProvider({ children }) {
   };
 
   const deleteInventoryItem = (id) => {
+    const item = inventory.find(i => i.id === id);
+    if (item) {
+      const soldCodeInfo = isItemCodeSold(item.itemNo);
+      if (soldCodeInfo) {
+        throw new Error(`आइटम "${item.name}" (कोड: ${item.itemNo}) हटाया नहीं जा सकता क्योंकि यह बिक्री बिल #${soldCodeInfo.billNo} में बेचा जा चुका है!`);
+      }
+      const serials = Array.isArray(item.serialNumbers) ? item.serialNumbers : parseSerials(item.serialNo);
+      for (const s of serials) {
+        const soldSerialInfo = isSerialSold(s);
+        if (soldSerialInfo) {
+          throw new Error(`आइटम "${item.name}" (सीरियल: ${s}) हटाया नहीं जा सकता क्योंकि यह बिक्री बिल #${soldSerialInfo.billNo} में बेचा जा चुका है!`);
+        }
+      }
+    }
     setInventory(prev => prev.filter(i => i.id !== id));
   };
 
@@ -1077,7 +1348,9 @@ export function BillingProvider({ children }) {
         uniqueSuppliers,
         validateSerial,
         isSerialSold,
+        isItemCodeSold,
         isSerialPurchased,
+        isPurchaseLockedDueToSale,
         parseSerials,
         exportData,
         importData

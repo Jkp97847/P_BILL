@@ -46,7 +46,9 @@ export default function StockInventoryTab() {
     startEditingPurchase,
     setActiveTab,
     parseSerials, 
-    validateSerial 
+    validateSerial,
+    isItemCodeSold,
+    isSerialSold
   } = useBilling();
 
   const gstSlabs = settings?.gstSlabs || [0, 5, 12, 18, 28];
@@ -295,7 +297,11 @@ export default function StockInventoryTab() {
   const handleSaveForm = (e) => {
     e.preventDefault();
     if (!itemForm.itemNo.trim() || !itemForm.name.trim() || !itemForm.salePrice) {
-      alert('कृपया आइटम नंबर, नाम और बिक्री मूल्य अनिवार्य रूप से भरें।');
+      setNotification({
+        type: 'error',
+        message: 'कृपया आइटम नंबर, नाम और बिक्री मूल्य अनिवार्य रूप से भरें!'
+      });
+      setTimeout(() => setNotification(null), 4500);
       return;
     }
 
@@ -305,7 +311,11 @@ export default function StockInventoryTab() {
       const seen = new Set();
       for (const s of parsedSerials) {
         if (seen.has(s)) {
-          alert(`सीरियल / IMEI "${s}" दो बार लिखा गया है!`);
+          setNotification({
+            type: 'error',
+            message: `सीरियल / IMEI "${s}" दो बार लिखा गया है!`
+          });
+          setTimeout(() => setNotification(null), 4500);
           return;
         }
         seen.add(s);
@@ -313,7 +323,11 @@ export default function StockInventoryTab() {
         if (!valRes.valid) {
           const wasInSelf = editingItem?.serialNumbers?.some(es => es.toUpperCase() === s.toUpperCase());
           if (!wasInSelf) {
-            alert(`त्रुटि: ${valRes.reason}`);
+            setNotification({
+              type: 'error',
+              message: `त्रुटि: ${valRes.reason}`
+            });
+            setTimeout(() => setNotification(null), 5000);
             return;
           }
         }
@@ -339,18 +353,50 @@ export default function StockInventoryTab() {
       type: 'success',
       message: editingItem ? 'आइटम सफलतापूर्वक अपडेट हुआ!' : 'नया आइटम इन्वेंट्री में जुड़ गया!'
     });
-    setTimeout(() => setNotification(null), 3500);
+    setTimeout(() => setNotification(null), 4000);
     setIsAddModalOpen(false);
   };
 
   const handleDelete = (id, name) => {
+    const item = inventory.find(i => i.id === id);
+    if (item) {
+      const soldCode = isItemCodeSold(item.itemNo);
+      if (soldCode) {
+        setNotification({
+          type: 'error',
+          message: `आइटम '${name}' (कोड: ${item.itemNo}) हटाया नहीं जा सकता क्योंकि यह बिक्री बिल #${soldCode.billNo} में बेचा जा चुका है!`
+        });
+        setTimeout(() => setNotification(null), 5000);
+        return;
+      }
+      const serials = Array.isArray(item.serialNumbers) ? item.serialNumbers : parseSerials(item.serialNo);
+      for (const s of serials) {
+        const soldSerial = isSerialSold(s);
+        if (soldSerial) {
+          setNotification({
+            type: 'error',
+            message: `आइटम '${name}' (सीरियल: ${s}) हटाया नहीं जा सकता क्योंकि यह बिक्री बिल #${soldSerial.billNo} में बेचा जा चुका है!`
+          });
+          setTimeout(() => setNotification(null), 5000);
+          return;
+        }
+      }
+    }
+
     if (window.confirm(`क्या आप सचमुच '${name}' को इन्वेंट्री से हटाना चाहते हैं?`)) {
-      deleteInventoryItem(id);
-      setNotification({
-        type: 'info',
-        message: 'आइटम इन्वेंट्री से हटा दिया गया।'
-      });
-      setTimeout(() => setNotification(null), 3000);
+      try {
+        deleteInventoryItem(id);
+        setNotification({
+          type: 'success',
+          message: `स्टॉक आइटम '${name}' सफलतापूर्वक हटा दिया गया!`
+        });
+      } catch (err) {
+        setNotification({
+          type: 'error',
+          message: err.message
+        });
+      }
+      setTimeout(() => setNotification(null), 4000);
     }
   };
 
@@ -359,7 +405,7 @@ export default function StockInventoryTab() {
       {/* 1. Notification */}
       {notification && (
         <div className={`p-4 rounded-xl flex items-center gap-2 shadow-md animate-in fade-in ${
-          notification.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white'
+          notification.type === 'success' ? 'bg-emerald-600 text-white' : notification.type === 'error' ? 'bg-rose-600 text-white' : 'bg-slate-900 text-white'
         }`}>
           <CheckCircle2 className="w-5 h-5 shrink-0" />
           <span className="font-bold text-sm">{notification.message || notification}</span>

@@ -9,54 +9,49 @@ export default function DigitalSignatureBadge({
   className = ''
 }) {
   const displayDate = date || new Date().toLocaleDateString('en-GB');
+  const signer = ownerName || firmName || 'अधिकृत प्रोपराइटर';
 
   return (
     <div 
-      className={`border-2 border-emerald-600 bg-gradient-to-br from-emerald-50/90 to-teal-50/80 rounded-lg p-2.5 text-left shadow-xs print:border-emerald-700 print:bg-emerald-50 ${className}`}
-      style={{ minWidth: '220px', maxWidth: '270px' }}
+      className={`border border-emerald-600 bg-emerald-50/75 rounded-md px-2 py-1 text-left shadow-2xs print:border-emerald-600 print:bg-emerald-50 print:p-1 ${className}`}
+      style={{ width: '100%', maxWidth: '210px' }}
     >
-      {/* Top Header with Green Verified Emblem */}
-      <div className="flex items-center gap-2 border-b border-emerald-200 pb-1.5 mb-1.5">
-        <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm ring-2 ring-emerald-200">
-          <CheckCircle2 className="w-4 h-4 stroke-[3]" />
+      {/* 1. Header: Authentic Green Verified Status */}
+      <div className="flex items-center justify-between border-b border-emerald-300 pb-0.5 mb-0.5">
+        <div className="flex items-center gap-1">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 stroke-[2.5] shrink-0" />
+          <span className="text-[8.5px] font-black text-emerald-800 tracking-wider uppercase leading-none">
+            DIGITALLY SIGNED
+          </span>
         </div>
-        <div className="leading-tight">
-          <div className="text-[11px] font-black text-emerald-800 tracking-wider uppercase flex items-center gap-1">
-            <span>DIGITALLY VERIFIED</span>
-          </div>
-          <div className="text-[9px] font-bold text-emerald-700">
-            डिजिटली सत्यापित ई-हस्ताक्षर
-          </div>
+        <span className="text-[7px] font-black text-emerald-800 bg-emerald-100/90 border border-emerald-400 px-1 py-0.2 rounded-xs leading-none">
+          VALID
+        </span>
+      </div>
+
+      {/* 2. Signer Details */}
+      <div className="leading-tight">
+        <div className="text-[9px] font-bold text-slate-900 truncate" title={signer}>
+          {signer}
+        </div>
+        <div className="flex items-center justify-between text-[7.5px] text-slate-600 mt-0.5">
+          <span className="truncate pr-1 text-slate-700 font-medium">
+            {signatoryText || 'अधिकृत हस्ताक्षरकर्ता'}
+          </span>
+          <span className="font-mono font-bold text-emerald-800 shrink-0">
+            {displayDate}
+          </span>
         </div>
       </div>
 
-      {/* Owner / Signatory Name */}
-      <div className="space-y-0.5">
-        <div className="text-[9px] font-semibold text-slate-500 uppercase tracking-wide">
-          प्रमाणित कर्ता (Verified By):
-        </div>
-        <div className="text-xs sm:text-sm font-black text-slate-900 leading-tight">
-          {ownerName || firmName || 'दुकानदार / प्रोपराइटर'}
-        </div>
-        <div className="text-[10px] font-bold text-emerald-800 leading-tight">
-          {signatoryText || 'अधिकृत हस्ताक्षरकर्ता'}
-        </div>
-      </div>
-
-      {/* Verification Date & Stamp Exemption Disclaimer */}
-      <div className="mt-1.5 pt-1.5 border-t border-emerald-200 text-[8.5px] leading-tight text-slate-600 space-y-0.5">
-        <div className="flex items-center justify-between text-emerald-800 font-semibold">
-          <span>दिनांक (Date):</span>
-          <span className="font-mono font-bold">{displayDate}</span>
-        </div>
-        <div className="text-emerald-700 font-medium text-[8px] flex items-center gap-1 pt-0.5">
-          <ShieldCheck className="w-3 h-3 text-emerald-600 shrink-0" />
-          <span>भौतिक हस्ताक्षर व मोहर की आवश्यकता नहीं</span>
-        </div>
-        <div className="text-[7.5px] text-slate-500 italic">
-          (Computer Generated Digitally Signed Invoice)
-        </div>
+      {/* 3. Official Legal Security Stamp Note */}
+      <div className="mt-0.5 pt-0.5 border-t border-emerald-200/90 flex items-center gap-1 text-[6.5px] text-emerald-800 font-medium leading-none">
+        <ShieldCheck className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+        <span className="truncate">
+          ई-हस्ताक्षर सत्यापित • भौतिक मोहर अनावश्यक
+        </span>
       </div>
     </div>
   );
 }
+

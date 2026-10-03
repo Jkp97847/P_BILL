@@ -58,7 +58,8 @@ export default function PurchaseEntryTab() {
     setActiveTab,
     uniqueSuppliers,
     validateSerial,
-    isSerialPurchased
+    isSerialPurchased,
+    isPurchaseLockedDueToSale
   } = useBilling();
 
   // Helper to build a new empty row with Category and pre-filled Item Code
@@ -86,6 +87,11 @@ export default function PurchaseEntryTab() {
   const [items, setItems] = useState([]);
   const [notification, setNotification] = useState(null);
 
+  // Check if current editing purchase is locked due to already sold item
+  const isLockedDueToSale = useMemo(() => {
+    return editingPurchase ? isPurchaseLockedDueToSale(editingPurchase) : null;
+  }, [editingPurchase, isPurchaseLockedDueToSale]);
+
   // Supplier Autocomplete dropdown state
   const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
   const supplierDropdownRef = useRef(null);
@@ -97,10 +103,6 @@ export default function PurchaseEntryTab() {
   // Verification Modal & Post-Save Summary Modal states
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [savedPurchaseDetails, setSavedPurchaseDetails] = useState(null);
-
-  // Multi-serial entry modal state
-  const [multiSerialModalRowIndex, setMultiSerialModalRowIndex] = useState(null);
-  const [multiSerialInputText, setMultiSerialInputText] = useState('');
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -198,17 +200,31 @@ export default function PurchaseEntryTab() {
       const updated = [...prev];
       const otherRows = updated.filter((_, i) => i !== index);
       const chosenCat = invItem.category || updated[index].category || 'Mobile';
-      const autoCode = generateNextItemCode(invItem.name, chosenCat, otherRows, true);
+      
+      // If the inventory item is a serialized device (Mobile/Battery/Earphone with serial key),
+      // we generate a NEW unique Item Code for this new physical piece,
+      // so it will have its OWN 1:1 Serial Key and won't clash with the existing item!
+      const isSerialized = Boolean(
+        invItem.serialNo || 
+        (Array.isArray(invItem.serialNumbers) && invItem.serialNumbers.length > 0) ||
+        chosenCat === 'Mobile'
+      );
+      
+      const itemCode = isSerialized
+        ? generateNextItemCode(invItem.name, chosenCat, otherRows, true)
+        : (invItem.itemNo || generateNextItemCode(invItem.name, chosenCat, otherRows, true));
 
       const target = {
         ...updated[index],
         category: chosenCat,
-        itemNo: autoCode,
+        itemNo: itemCode,
         name: invItem.name,
+        serialNo: '', // User will enter the new unique serial key for this piece
         hsn: invItem.hsn || (chosenCat === 'Battery' ? '8506' : chosenCat === 'Earphone' ? '8518' : chosenCat === 'Charger' ? '8504' : '8517'),
         costPrice: invItem.costPrice || '',
         salePrice: invItem.salePrice || '',
         gstRate: invItem.gstRate !== undefined ? invItem.gstRate : 18,
+        qty: isSerialized ? 1 : (Number(updated[index].qty) || 1)
       };
 
       const qty = Number(target.qty) || 1;
@@ -263,7 +279,32 @@ export default function PurchaseEntryTab() {
         target.itemNo = generateNextItemCode(target.name, value, otherRows, true);
       }
 
-      const qty = Number(field === 'qty' ? value : target.qty) || 0;
+      // Enforce 1:1 Serial Key to Item Code rule
+      if (field === 'serialNo') {
+        let cleanVal = String(value || '').replace(/[\r\n\t]/g, '').trim().toUpperCase();
+        if (cleanVal.includes(',')) {
+          const parts = cleanVal.split(',').map(s => s.trim()).filter(Boolean);
+          cleanVal = parts[0] || '';
+          setNotification({
+            type: 'warning',
+            message: '⚠️ 1 आइटम कोड = 1 सीरियल की! केवल पहला सीरियल लिया गया है। अन्य सीरियल के लिए "नया आइटम रो जोड़ें" बटन दबाएं।'
+          });
+          setTimeout(() => setNotification(null), 5000);
+        }
+        target.serialNo = cleanVal;
+        if (cleanVal) {
+          target.qty = 1; // Locked to 1 for serialized item
+        }
+      }
+
+      if (field === 'qty') {
+        // If row has a serial key, qty is strictly locked to 1
+        if (target.serialNo && target.serialNo.trim()) {
+          target.qty = 1;
+        }
+      }
+
+      const qty = Number(field === 'qty' ? (target.serialNo && target.serialNo.trim() ? 1 : value) : target.qty) || 0;
       const cost = Number(field === 'costPrice' ? value : target.costPrice) || 0;
       const gst = Number(field === 'gstRate' ? value : target.gstRate) || 18;
 
@@ -287,28 +328,11 @@ export default function PurchaseEntryTab() {
     setItems(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Multi Serial Modal Open / Save
-  const openMultiSerialModal = (index) => {
-    const currentSerials = parseSerials(items[index].serialNo);
-    setMultiSerialModalRowIndex(index);
-    setMultiSerialInputText(currentSerials.join('\n'));
-  };
-
-  const saveMultiSerialModal = () => {
-    if (multiSerialModalRowIndex === null) return;
-    const parsed = parseSerials(multiSerialInputText);
-    const joined = parsed.join(', ');
-    handleCellChange(multiSerialModalRowIndex, 'serialNo', joined);
-    setMultiSerialModalRowIndex(null);
-  };
-
-  // Extract all current serials across rows for duplicate checking
+  // Extract all current serials across rows for duplicate checking (1:1)
   const allCurrentPurchaseSerials = useMemo(() => {
-    const list = [];
-    items.forEach(it => {
-      parseSerials(it.serialNo).forEach(s => list.push(s));
-    });
-    return list;
+    return items
+      .map(it => (it.serialNo || '').trim().toUpperCase())
+      .filter(Boolean);
   }, [items]);
 
   // Financial Calculations with Discount
@@ -328,6 +352,16 @@ export default function PurchaseEntryTab() {
   // Pre-Save Validation: Triggered before opening Verification Modal (STRICT COMPULSORY CHECKS)
   const handleSave = (e) => {
     if (e) e.preventDefault();
+
+    // 0. Check if Purchase is Locked because its serial/item was already sold
+    if (isLockedDueToSale) {
+      setNotification({
+        type: 'error',
+        message: `यह खरीद प्रविष्टि अपडेट नहीं की जा सकती क्योंकि इसमें शामिल सामान/सीरियल "${isLockedDueToSale.soldSerial}" (${isLockedDueToSale.itemName}) पहले ही बिक्री बिल #${isLockedDueToSale.billNo} में बेचा जा चुका है!`
+      });
+      setTimeout(() => setNotification(null), 6000);
+      return;
+    }
 
     // 1. Check Supplier Name (COMPULSORY)
     if (!supplierName || !supplierName.trim()) {
@@ -434,16 +468,25 @@ export default function PurchaseEntryTab() {
       }
     }
 
-    // 6. Strict Serial Duplicate Validation
+    // 6. Strict Serial Duplicate Validation (1 Item Code = 1 Serial Key)
     const seenSerials = new Set();
     for (let r = 0; r < items.length; r++) {
       const it = items[r];
-      const serials = parseSerials(it.serialNo);
-      for (const s of serials) {
+      const s = (it.serialNo || '').trim().toUpperCase();
+      if (s) {
+        if (Number(it.qty) !== 1) {
+          setNotification({
+            type: 'error',
+            message: `पंक्ति #${r + 1} (${it.name}): 1 आइटम कोड = 1 सीरियल की! मात्रा केवल 1 होनी चाहिए।`
+          });
+          setTimeout(() => setNotification(null), 5000);
+          return;
+        }
+
         if (seenSerials.has(s)) {
           setNotification({
             type: 'error',
-            message: `डुप्लीकेट सीरियल/IMEI: "${s}" इस खरीद प्रविष्टि में दो बार दर्ज है!`
+            message: `डुप्लीकेट सीरियल/IMEI: "${s}" इस खरीद प्रविष्टि में दो बार दर्ज है! (1 आइटम कोड = 1 सीरियल की)`
           });
           setTimeout(() => setNotification(null), 5000);
           return;
@@ -454,17 +497,20 @@ export default function PurchaseEntryTab() {
         if (purInfo) {
           setNotification({
             type: 'error',
-            message: `सीरियल/IMEI "${s}" पहले ही खरीद #${purInfo.purchaseNo} में दर्ज है! डुप्लीकेट खरीद वर्जित है।`
+            message: `सीरियल/IMEI "${s}" पहले ही खरीद #${purInfo.purchaseNo} (${purInfo.supplierName}) में दर्ज है! एक बार खरीदा हुआ सामान दोबारा नहीं खरीदा जा सकता।`
           });
           setTimeout(() => setNotification(null), 5000);
           return;
         }
 
-        const inStock = inventory.some(inv => (inv.serialNumbers || []).some(sn => sn.toUpperCase() === s));
+        const inStock = inventory.some(inv => 
+          (inv.serialNumbers || []).some(sn => String(sn).trim().toUpperCase() === s) ||
+          (inv.serialNo && String(inv.serialNo).trim().toUpperCase() === s)
+        );
         if (inStock && !editingPurchase) {
           setNotification({
             type: 'error',
-            message: `सीरियल/IMEI "${s}" पहले से दुकान के एक्टिव स्टॉक में मौजूद है!`
+            message: `सीरियल/IMEI "${s}" पहले से दुकान के एक्टिव स्टॉक में मौजूद है! दोबारा खरीद वर्जित है।`
           });
           setTimeout(() => setNotification(null), 5000);
           return;
@@ -487,18 +533,21 @@ export default function PurchaseEntryTab() {
       supplierMobile: supplierMobile.trim(),
       supplierGstin: supplierGstin.trim().toUpperCase(),
       supplierInvoiceNo: supplierInvoiceNo.trim(),
-      items: currentValid.map(it => ({
-        itemNo: (it.itemNo || generateNextItemCode(it.name, it.category)).toUpperCase(),
-        serialNo: parseSerials(it.serialNo).join(', '),
-        name: it.name,
-        category: it.category,
-        hsn: it.hsn,
-        costPrice: Number(it.costPrice) || 0,
-        salePrice: Number(it.salePrice) || 0,
-        gstRate: Number(it.gstRate) || 18,
-        qty: Number(it.qty) || 1,
-        total: Number(it.total) || 0
-      })),
+      items: currentValid.map(it => {
+        const cleanSerial = (it.serialNo || '').trim().toUpperCase();
+        return {
+          itemNo: (it.itemNo || generateNextItemCode(it.name, it.category)).toUpperCase(),
+          serialNo: cleanSerial,
+          name: it.name,
+          category: it.category,
+          hsn: it.hsn,
+          costPrice: Number(it.costPrice) || 0,
+          salePrice: Number(it.salePrice) || 0,
+          gstRate: Number(it.gstRate) || 18,
+          qty: cleanSerial ? 1 : (Number(it.qty) || 1),
+          total: Number(it.total) || 0
+        };
+      }),
       totalTaxable: Math.round(totalTaxable * 100) / 100,
       totalGst: Math.round(totalGst * 100) / 100,
       subTotal: Math.round(subTotal * 100) / 100,
@@ -528,6 +577,24 @@ export default function PurchaseEntryTab() {
         >
           {notification.type === 'success' ? <CheckCircle className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
           <span className="font-semibold text-sm">{notification.message}</span>
+        </div>
+      )}
+
+      {/* Locked Due to Sale Warning Banner */}
+      {isLockedDueToSale && (
+        <div className="bg-amber-50 border-2 border-amber-500 text-amber-950 p-4 rounded-xl flex items-start gap-3 shadow-sm animate-in slide-in-from-top duration-200">
+          <Lock className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+          <div className="text-xs space-y-1">
+            <div className="font-black text-sm text-amber-900">
+              🔒 यह खरीद प्रविष्टि लॉक है (संशोधन / डिलीट वर्जित)
+            </div>
+            <div>
+              इस खरीद प्रविष्टि का सामान / सीरियल नंबर <span className="font-mono font-bold text-amber-950">"{isLockedDueToSale.soldSerial}"</span> ({isLockedDueToSale.itemName}) पहले ही बिक्री बिल <span className="font-mono font-bold">#{isLockedDueToSale.billNo}</span> में बेचा जा चुका है।
+            </div>
+            <div className="font-semibold text-amber-800">
+              बिक चुके सामान की खरीद डिटेल्स में बदलाव या डिलीट करना प्रतिबंधित है।
+            </div>
+          </div>
         </div>
       )}
 
@@ -751,23 +818,21 @@ export default function PurchaseEntryTab() {
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
               {items.map((row, index) => {
-                const rowSerials = parseSerials(row.serialNo);
-                // Check each serial in row for errors
+                const s = (row.serialNo || '').trim().toUpperCase();
                 let hasRowSerialError = null;
-                for (const s of rowSerials) {
-                  const countInDoc = allCurrentPurchaseSerials.filter(x => x === s).length;
+                if (s) {
+                  const countInDoc = items.filter(x => (x.serialNo || '').trim().toUpperCase() === s).length;
                   if (countInDoc > 1) {
                     hasRowSerialError = `डुप्लीकेट: "${s}" दो बार दर्ज है!`;
-                    break;
-                  }
-                  const check = validateSerial(s, {
-                    context: 'purchase',
-                    currentDocId: editingPurchase?.id,
-                    allCurrentSerials: allCurrentPurchaseSerials
-                  });
-                  if (!check.isValid) {
-                    hasRowSerialError = check.error;
-                    break;
+                  } else {
+                    const check = validateSerial(s, {
+                      context: 'purchase',
+                      currentDocId: editingPurchase?.id,
+                      allCurrentSerials: items.map(x => (x.serialNo || '').trim().toUpperCase()).filter(Boolean)
+                    });
+                    if (!check.isValid) {
+                      hasRowSerialError = check.error;
+                    }
                   }
                 }
 
@@ -866,36 +931,25 @@ export default function PurchaseEntryTab() {
                       </div>
                     </td>
 
-                    {/* DEDICATED SERIAL / IMEI / KEY COLUMN */}
+                    {/* DEDICATED SERIAL / IMEI / KEY COLUMN (1 Item Code = 1 Serial Key) */}
                     <td className="py-2 px-2">
                       <div>
                         <input
                           type="text"
                           value={row.serialNo || ''}
-                          onChange={(e) => handleCellChange(index, 'serialNo', e.target.value.toUpperCase())}
+                          onChange={(e) => handleCellChange(index, 'serialNo', e.target.value)}
                           placeholder="864920... / SN-001"
                           className={`w-full px-2 py-1.5 font-mono text-xs border rounded outline-hidden uppercase ${
                             hasRowSerialError ? 'border-rose-500 bg-rose-50 text-rose-900 font-bold' : 'border-slate-300 bg-white'
                           }`}
-                          title="बारकोड स्कैनर से स्कैन करें या टाइप करें (अनेक होने पर कॉमा लगाएं)"
+                          title="1 आइटम कोड = 1 सीरियल की (बारकोड स्कैनर से स्कैन करें या टाइप करें)"
                         />
-                        {/* Multi-serial button if Qty > 1 */}
-                        {Number(row.qty) > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => openMultiSerialModal(index)}
-                            className="mt-1 text-[10px] text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-1.5 py-0.5 rounded flex items-center justify-between gap-1 font-bold cursor-pointer w-full transition-colors"
-                          >
-                            <span className="flex items-center gap-1">
-                              <Smartphone className="w-2.5 h-2.5" />
-                              <span>+ {row.qty} IMEI/सीरियल भरें</span>
-                            </span>
-                            <span className={`px-1 py-0.2 rounded text-[9px] ${
-                              rowSerials.length === Number(row.qty) ? 'bg-emerald-600 text-white' : 'bg-amber-700 text-white'
-                            }`}>
-                              {rowSerials.length}/{row.qty}
-                            </span>
-                          </button>
+                        {/* 1:1 Serial Key Confirmation Badge */}
+                        {row.serialNo && !hasRowSerialError && (
+                          <div className="text-[9px] text-emerald-700 font-bold flex items-center gap-0.5 mt-0.5 leading-tight">
+                            <Check className="w-2.5 h-2.5 shrink-0" />
+                            <span>1 कोड = 1 सीरियल (मात्रा: 1)</span>
+                          </div>
                         )}
                         {/* Live Error warning badge */}
                         {hasRowSerialError && (
@@ -949,13 +1003,22 @@ export default function PurchaseEntryTab() {
                         ))}
                       </select>
                     </td>
+
+                    {/* QTY COLUMN: Locked to 1 if Serial Key is entered */}
                     <td className="py-2 px-2">
                       <input
                         type="number"
                         min="1"
-                        value={row.qty}
+                        readOnly={Boolean(row.serialNo && row.serialNo.trim())}
+                        disabled={Boolean(row.serialNo && row.serialNo.trim())}
+                        value={row.serialNo && row.serialNo.trim() ? 1 : row.qty}
                         onChange={(e) => handleCellChange(index, 'qty', e.target.value)}
-                        className="w-full px-1.5 py-1.5 text-center font-mono font-bold text-xs border border-slate-300 rounded outline-hidden"
+                        title={row.serialNo && row.serialNo.trim() ? '1 आइटम कोड = 1 सीरियल की (मात्रा 1 फिक्स)' : 'मात्रा दर्ज करें'}
+                        className={`w-full px-1.5 py-1.5 text-center font-mono font-bold text-xs border rounded outline-hidden ${
+                          row.serialNo && row.serialNo.trim()
+                            ? 'bg-slate-100 text-slate-700 border-slate-300 cursor-not-allowed select-none'
+                            : 'bg-white border-slate-300 text-slate-900'
+                        }`}
                       />
                     </td>
                     <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 text-xs">
@@ -1084,96 +1147,21 @@ export default function PurchaseEntryTab() {
             <button
               type="button"
               onClick={handleSave}
-              className="flex items-center gap-2 px-8 py-3 bg-amber-600 hover:bg-amber-700 text-white font-black rounded-xl shadow-lg shadow-amber-200 transition-all cursor-pointer text-sm"
+              disabled={Boolean(isLockedDueToSale)}
+              className={`flex items-center gap-2 px-8 py-3 text-white font-black rounded-xl transition-all text-sm ${
+                isLockedDueToSale
+                  ? 'bg-slate-400 cursor-not-allowed shadow-none'
+                  : 'bg-amber-600 hover:bg-amber-700 shadow-lg shadow-amber-200 cursor-pointer'
+              }`}
             >
               <Save className="w-5 h-5" />
-              <span>{editingPurchase ? 'खरीद अपडेट करें' : 'खरीद प्रविष्टि सेव करें (Save Purchase & Add Stock)'}</span>
+              <span>{isLockedDueToSale ? 'बिका हुआ (Locked) - अपडेट वर्जित' : (editingPurchase ? 'खरीद अपडेट करें' : 'खरीद प्रविष्टि सेव करें (Save Purchase & Add Stock)')}</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* 6. Multi-Serial Modal Dialog */}
-      {multiSerialModalRowIndex !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
-            <div className="bg-gradient-to-r from-amber-700 to-amber-800 text-white p-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Smartphone className="w-5 h-5 text-amber-200" />
-                <div>
-                  <h3 className="font-bold text-sm">सीरियल / IMEI नंबर दर्ज करें</h3>
-                  <p className="text-[11px] text-amber-100">
-                    आइटम: {items[multiSerialModalRowIndex]?.name || items[multiSerialModalRowIndex]?.itemNo} (मात्रा: {items[multiSerialModalRowIndex]?.qty})
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMultiSerialModalRowIndex(null)}
-                className="text-white/80 hover:text-white p-1 rounded"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-4 space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1 flex justify-between">
-                  <span>प्रत्येक सीरियल / IMEI अलग पंक्ति या कॉमा से दर्ज करें:</span>
-                  <span className="font-mono text-amber-700 font-bold">
-                    {parseSerials(multiSerialInputText).length} / {items[multiSerialModalRowIndex]?.qty} दर्ज
-                  </span>
-                </label>
-                <textarea
-                  rows={6}
-                  value={multiSerialInputText}
-                  onChange={(e) => setMultiSerialInputText(e.target.value.toUpperCase())}
-                  placeholder="उदा.&#10;864920194820101&#10;864920194820102&#10;864920194820103"
-                  className="w-full p-2.5 font-mono text-xs border border-slate-300 rounded-lg outline-hidden focus:ring-2 focus:ring-amber-500 uppercase leading-relaxed"
-                  autoFocus
-                />
-                <p className="text-[10px] text-slate-500 mt-1">
-                  💡 टिप: बारकोड स्कैनर से स्कैन करने पर यह स्वतः अगली लाइन में भरता जाएगा।
-                </p>
-              </div>
-
-              {/* Duplicate check in modal */}
-              {(() => {
-                const parsed = parseSerials(multiSerialInputText);
-                const dups = parsed.filter((item, index) => parsed.indexOf(item) !== index);
-                if (dups.length > 0) {
-                  return (
-                    <div className="p-2 bg-rose-50 border border-rose-200 rounded text-rose-800 text-xs font-bold flex items-center gap-1.5">
-                      <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
-                      <span>डुप्लीकेट सीरियल मिला: {dups.join(', ')}</span>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setMultiSerialModalRowIndex(null)}
-                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
-                >
-                  रद्द करें
-                </button>
-                <button
-                  type="button"
-                  onClick={saveMultiSerialModal}
-                  className="px-4 py-1.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg cursor-pointer flex items-center gap-1 shadow-xs"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>लागू करें (Apply)</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* 7. PRE-SAVE VERIFICATION MODAL */}
+      {/* 6. PRE-SAVE VERIFICATION MODAL */}
       {showVerifyModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150 my-8">
@@ -1472,10 +1460,10 @@ export default function PurchaseEntryTab() {
                             {it.name}
                           </td>
                           <td className="py-2.5 px-2 text-slate-700">
-                            {serials.length > 0 ? (
-                              <div className="font-mono text-[10px]">
-                                {serials.join(', ')}
-                              </div>
+                            {it.serialNo ? (
+                              <span className="font-mono text-xs font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                {it.serialNo}
+                              </span>
                             ) : (
                               <span className="text-slate-400 italic text-[11px]">-</span>
                             )}

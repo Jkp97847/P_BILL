@@ -89,6 +89,9 @@ export default function BillGenerateTab() {
   // UI States
   const [showPreview, setShowPreview] = useState(false);
   const [notification, setNotification] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingBillData, setPendingBillData] = useState(null);
+  const [shouldPrintAfterSave, setShouldPrintAfterSave] = useState(false);
   const [quickPurchaseRowIndex, setQuickPurchaseRowIndex] = useState(null);
   const [quickPurchaseItemNo, setQuickPurchaseItemNo] = useState('');
   const [activeSuggestionRow, setActiveSuggestionRow] = useState(null);
@@ -224,24 +227,134 @@ export default function BillGenerateTab() {
     setCustomerMobile(formatMobileInput(digits));
   };
 
+  // Helper to calculate available unsold stock for an item considering other rows in current bill
+  const getAvailableStockForItem = (item, currentRowIndex = -1, currentRows = rows) => {
+    if (!item) return 0;
+    const baseStock = Number(item.stockQty) || 0;
+    if (baseStock <= 0) return 0;
+
+    // Collect serials & quantities used in other rows of the current bill
+    const usedSerialsInOtherRows = new Set();
+    let qtyUsedInOtherRows = 0;
+    const checkItemNo = String(item.itemNo || '').trim().toUpperCase();
+
+    (currentRows || []).forEach((r, idx) => {
+      if (idx !== currentRowIndex && r) {
+        if (String(r.itemNo || '').trim().toUpperCase() === checkItemNo) {
+          qtyUsedInOtherRows += Number(r.qty) || 1;
+        }
+        if (r.serialNo) {
+          parseSerials(r.serialNo).forEach(s => usedSerialsInOtherRows.add(s.toUpperCase()));
+        }
+      }
+    });
+
+    if (Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0) {
+      const unsoldUnusedSerials = item.serialNumbers.filter(s => {
+        const up = String(s).trim().toUpperCase();
+        return !isSerialSold(up, editingBill?.id) && !usedSerialsInOtherRows.has(up);
+      });
+      return unsoldUnusedSerials.length;
+    }
+
+    return Math.max(0, baseStock - qtyUsedInOtherRows);
+  };
+
+  // Helper to auto-fill attached serial number / key for an item (Strict 1:1)
+  const getAutoSerialsForItem = (item, qty = 1, currentRows = rows, currentRowIndex = -1) => {
+    if (!item) return '';
+
+    // Collect serials used in other rows of the current bill
+    const usedSerialsInOtherRows = new Set();
+    (currentRows || []).forEach((r, idx) => {
+      if (idx !== currentRowIndex && r && r.serialNo) {
+        parseSerials(r.serialNo).forEach(s => usedSerialsInOtherRows.add(s.toUpperCase()));
+      }
+    });
+
+    if (item.serialNo && typeof item.serialNo === 'string' && item.serialNo.trim()) {
+      const up = item.serialNo.trim().toUpperCase();
+      if (!usedSerialsInOtherRows.has(up) && !isSerialSold(up, editingBill?.id)) {
+        return item.serialNo.trim();
+      }
+      return '';
+    }
+
+    if (Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0) {
+      const available = item.serialNumbers.filter(s => {
+        const up = String(s).trim().toUpperCase();
+        return !usedSerialsInOtherRows.has(up) && !isSerialSold(up, editingBill?.id);
+      });
+
+      if (available.length > 0) {
+        return String(available[0]).trim();
+      }
+      return '';
+    }
+
+    return '';
+  };
+
   // --------------------------------------------------------------------------
-  // AUTO-FILL ON ITEM NUMBER SELECTION / INPUT
-  // --------------------------------------------------------------------------
-  // AUTO-FILL ON ITEM NUMBER SELECTION / INPUT
+  // AUTO-FILL ON ITEM NUMBER SELECTION / INPUT (With Duplicate & Sold Out Prevention)
   // --------------------------------------------------------------------------
   const handleItemNoChange = (index, enteredCode) => {
     const code = enteredCode.toUpperCase();
+    const cleanCode = code.trim();
+
+    // Prevent duplicate item code across other rows of the current bill
+    if (cleanCode) {
+      const isAlreadyInOtherRow = rows.some((r, rIdx) => 
+        rIdx !== index && String(r.itemNo || '').trim().toUpperCase() === cleanCode
+      );
+      if (isAlreadyInOtherRow) {
+        setNotification({
+          type: 'error',
+          message: `⚠️ आइटम कोड "${code}" इस बिल में पहले से दर्ज है! डुप्लीकेट एंट्री वर्जित है। कृपया उसी पंक्ति में मात्रा (Qty) बढ़ाएं।`
+        });
+        setTimeout(() => setNotification(null), 5000);
+        return;
+      }
+    }
     
-    // Check if matched in inventory
-    const matched = inventory.find(
-      it => it.itemNo.toUpperCase() === code
-    );
+    // Normalize code for flexible matching (e.g. MOB001 matching MOB-001)
+    const norm = (s) => String(s || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const cleanNorm = norm(cleanCode);
 
-    setRows(prevRows => {
-      const updated = [...prevRows];
-      const target = { ...updated[index], itemNo: code };
+    // Check if matched in inventory (by itemNo exact, normalized, or barcode/IMEI)
+    const matched = inventory.find(it => {
+      const itCode = String(it.itemNo || '').trim().toUpperCase();
+      if (itCode === cleanCode) return true;
+      if (cleanNorm && norm(itCode) === cleanNorm) return true;
+      // Also match if user scans IMEI / serial number directly into Item Code box
+      if (Array.isArray(it.serialNumbers) && it.serialNumbers.some(s => String(s).trim().toUpperCase() === cleanCode || (cleanNorm && norm(s) === cleanNorm))) {
+        return true;
+      }
+      if (it.serialNo && (String(it.serialNo).trim().toUpperCase() === cleanCode || (cleanNorm && norm(it.serialNo) === cleanNorm))) {
+        return true;
+      }
+      return false;
+    });
 
-      if (matched) {
+    if (matched) {
+      const availableStock = getAvailableStockForItem(matched, index, rows);
+      if (availableStock <= 0) {
+        setNotification({
+          type: 'error',
+          message: `⚠️ आइटम "${matched.itemNo}" (${matched.name}) का स्टॉक समाप्त हो चुका है या यह पहले ही बिक चुका है!`
+        });
+        setTimeout(() => setNotification(null), 5000);
+        setRows(prevRows => {
+          const updated = [...prevRows];
+          updated[index] = createEmptyRow(index, gstSlabs[0] || 18);
+          return updated;
+        });
+        return;
+      }
+
+      setRows(prevRows => {
+        const updated = [...prevRows];
+        const target = { ...updated[index], itemNo: matched.itemNo };
         const qty = Number(target.qty) > 0 ? Number(target.qty) : 1;
         const salePrice = Number(matched.salePrice) || 0;
         const gstRule = getItemGstRate ? getItemGstRate(matched.name) : null;
@@ -254,26 +367,97 @@ export default function BillGenerateTab() {
         const halfTax = Math.round((totalTax / 2) * 100) / 100;
         const lineTotal = Math.round(salePrice * qty * 100) / 100;
 
+        // If scanned IMEI was an exact match for one of the serials, use that serial!
+        let chosenSerial = '';
+        if (Array.isArray(matched.serialNumbers) && matched.serialNumbers.some(s => String(s).trim().toUpperCase() === cleanCode)) {
+          chosenSerial = cleanCode;
+        } else {
+          chosenSerial = getAutoSerialsForItem(matched, 1, prevRows, index);
+        }
+
+        const isSerialized = Boolean(chosenSerial || matched.serialNo || (Array.isArray(matched.serialNumbers) && matched.serialNumbers.length > 0));
+        const finalQty = isSerialized ? 1 : qty;
+
         target.name = matched.name;
+        target.serialNo = chosenSerial;
         target.hsn = hsn;
-        target.qty = qty;
+        target.qty = finalQty;
         target.unit = matched.unit || 'PCS';
         target.salePriceIncGst = salePrice;
         target.rate = taxableUnit;
-        target.taxableAmount = taxableAmount;
+        target.taxableAmount = Math.round(taxableUnit * finalQty * 100) / 100;
         target.gstRate = gstRate;
-        target.cgstAmount = halfTax;
-        target.sgstAmount = halfTax;
-        target.total = lineTotal;
-      }
-      updated[index] = target;
+        target.cgstAmount = Math.round((halfTax * finalQty / qty) * 100) / 100;
+        target.sgstAmount = Math.round((halfTax * finalQty / qty) * 100) / 100;
+        target.total = Math.round(salePrice * finalQty * 100) / 100;
+
+        updated[index] = target;
+        return updated;
+      });
+      return;
+    }
+
+    setRows(prevRows => {
+      const updated = [...prevRows];
+      updated[index] = { ...updated[index], itemNo: code };
       return updated;
     });
   };
 
+  // Blur Handler on Item Code Input (Auto-complete if matching inventory item)
+  const handleItemNoBlur = (index) => {
+    setTimeout(() => setActiveSuggestionRow(null), 250);
+    const row = rows[index];
+    if (!row || !row.itemNo || !row.itemNo.trim()) return;
+
+    const code = row.itemNo.trim().toUpperCase();
+    const norm = (s) => String(s || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const cleanNorm = norm(code);
+
+    const matched = inventory.find(it => {
+      const itNo = String(it.itemNo || '').trim().toUpperCase();
+      if (itNo === code) return true;
+      if (cleanNorm && norm(itNo) === cleanNorm) return true;
+      return false;
+    });
+
+    if (matched && (!row.name || row.name !== matched.name)) {
+      selectInventoryItem(index, matched);
+    }
+  };
+
   // Direct Selection from Autocomplete Dropdown
   const selectInventoryItem = (index, item) => {
-    const qty = Number(rows[index].qty) > 0 ? Number(rows[index].qty) : 1;
+    const cleanCode = String(item.itemNo || '').trim().toUpperCase();
+
+    // Prevent duplicate item code across other rows
+    const isAlreadyInOtherRow = rows.some((r, rIdx) => 
+      rIdx !== index && String(r.itemNo || '').trim().toUpperCase() === cleanCode
+    );
+    if (isAlreadyInOtherRow) {
+      setNotification({
+        type: 'error',
+        message: `⚠️ आइटम "${item.itemNo}" (${item.name}) इस बिल में पहले से दर्ज है! डुप्लीकेट एंट्री वर्जित है।`
+      });
+      setTimeout(() => setNotification(null), 5000);
+      setActiveSuggestionRow(null);
+      return;
+    }
+
+    const availableStock = getAvailableStockForItem(item, index, rows);
+    if (availableStock <= 0) {
+      setNotification({
+        type: 'error',
+        message: `⚠️ आइटम "${item.itemNo}" (${item.name}) का स्टॉक समाप्त हो चुका है या यह पहले ही बिक चुका है!`
+      });
+      setTimeout(() => setNotification(null), 5000);
+      setActiveSuggestionRow(null);
+      return;
+    }
+
+    const autoSerial = getAutoSerialsForItem(item, 1, rows, index);
+    const isSerialized = Boolean(autoSerial || item.serialNo || (Array.isArray(item.serialNumbers) && item.serialNumbers.length > 0));
+    const qty = isSerialized ? 1 : (Number(rows[index].qty) > 0 ? Number(rows[index].qty) : 1);
     const salePrice = Number(item.salePrice) || 0;
     const gstRule = getItemGstRate ? getItemGstRate(item.name) : null;
     const gstRate = Number(item.gstRate) || (gstRule ? gstRule.gstRate : (gstSlabs.includes(18) ? 18 : gstSlabs[0]));
@@ -290,6 +474,7 @@ export default function BillGenerateTab() {
       updated[index] = {
         ...updated[index],
         itemNo: item.itemNo,
+        serialNo: autoSerial,
         name: item.name,
         hsn: hsn,
         qty: qty,
@@ -306,6 +491,7 @@ export default function BillGenerateTab() {
     });
 
     setActiveSuggestionRow(null);
+    setActiveNameSuggestionRow(null);
   };
 
   // Handle Qty, Price, or Name Manual Edits (with Auto-fill GST on Name)
@@ -313,6 +499,9 @@ export default function BillGenerateTab() {
     setRows(prev => {
       const updated = [...prev];
       const target = { ...updated[index], [field]: value };
+
+      const qty = Math.max(1, parseFloat(field === 'qty' ? value : target.qty) || 1);
+      const gstRate = parseFloat(field === 'gstRate' ? value : target.gstRate) || 0;
 
       // Auto-fill GST Rate based on Item Name
       if (field === 'name' && value && value.trim()) {
@@ -325,8 +514,14 @@ export default function BillGenerateTab() {
         }
       }
 
-      const qty = parseFloat(field === 'qty' ? value : target.qty) || 0;
-      const gstRate = parseFloat(field === 'gstRate' ? value : target.gstRate) || 0;
+      // If item is serialized (has serialNo attached), qty cannot exceed 1!
+      if (field === 'qty') {
+        const cleanItemNo = String(target.itemNo || '').trim().toUpperCase();
+        const invMatch = inventory.find(it => String(it.itemNo || '').trim().toUpperCase() === cleanItemNo);
+        if ((target.serialNo && target.serialNo.trim()) || (invMatch && (invMatch.serialNo || (invMatch.serialNumbers && invMatch.serialNumbers.length > 0)))) {
+          target.qty = 1;
+        }
+      }
 
       if (field === 'salePriceIncGst' || field === 'qty' || field === 'gstRate' || field === 'name') {
         const salePrice = parseFloat(field === 'salePriceIncGst' ? value : target.salePriceIncGst) || 0;
@@ -472,29 +667,44 @@ export default function BillGenerateTab() {
     };
   }, [rows, discount]);
 
-  // Compulsory Validation and Preparation of Bill
+  // Validation and Preparation of Bill
   const prepareBillData = () => {
-    // 1. Customer Name is COMPULSORY (Max 100 chars, uppercase)
-    if (!customerName || customerName.trim().length === 0) {
+    // 1. Customer Name Check (COMPULSORY)
+    if (!customerName || !customerName.trim()) {
       setNotification({
         type: 'error',
-        message: 'ग्राहक का नाम दर्ज करना अनिवार्य (Compulsory) है!'
+        message: 'कृपया ग्राहक का नाम (Customer Name) अनिवार्य रूप से भरें!'
       });
       setTimeout(() => setNotification(null), 4500);
       document.getElementById('customer-name-input')?.focus();
       return null;
     }
+    const finalCustomerName = customerName.trim().toUpperCase().slice(0, 100);
 
-    // 2. Customer Mobile is COMPULSORY (Exactly 10 digits numeric only, starts with 6, 7, 8, 9)
-    const mobRes = validateMobile(customerMobile, true, 'ग्राहक का मोबाइल नंबर');
-    if (!mobRes.isValid) {
+    // 1b. Bill Date Check (COMPULSORY)
+    if (!date || !date.trim()) {
       setNotification({
         type: 'error',
-        message: mobRes.error
+        message: 'कृपया बिल दिनांक (Bill Date) दर्ज करें!'
       });
       setTimeout(() => setNotification(null), 4500);
-      document.getElementById('customer-mobile-input')?.focus();
       return null;
+    }
+
+    // 2. Customer Mobile (Optional, but if entered must be valid 10-digit number)
+    let cleanMobile = '';
+    if (customerMobile && customerMobile.trim()) {
+      const mobRes = validateMobile(customerMobile, false, 'ग्राहक का मोबाइल नंबर');
+      if (!mobRes.isValid) {
+        setNotification({
+          type: 'error',
+          message: mobRes.error
+        });
+        setTimeout(() => setNotification(null), 4500);
+        document.getElementById('customer-mobile-input')?.focus();
+        return null;
+      }
+      cleanMobile = mobRes.mobile || customerMobile.trim();
     }
 
     // 2b. Customer GSTIN (Optional, but if entered must be valid 15-char format)
@@ -510,7 +720,7 @@ export default function BillGenerateTab() {
       }
     }
 
-    // 3. Strict Compulsory Item Validations: Item Code, Description, Quantity, Rate
+    // 3. Item Validations: Must have at least 1 active row with a name and price
     const activeRowsWithIndex = rows
       .map((row, index) => ({ row, index }))
       .filter(({ row }) => isRowActive(row));
@@ -518,68 +728,92 @@ export default function BillGenerateTab() {
     if (activeRowsWithIndex.length === 0) {
       setNotification({
         type: 'error',
-        message: 'बिल में कम से कम 1 आइटम दर्ज करना अनिवार्य (Compulsory) है! (आइटम कोड, विवरण, मात्रा और दर भरें)'
+        message: 'बिल में कम से कम 1 सामान (आइटम) दर्ज करना अनिवार्य है! (आइटम कोड, विवरण और दर भरें)'
       });
       setTimeout(() => setNotification(null), 5000);
       return null;
     }
 
+    const validRows = [];
     for (const { row, index } of activeRowsWithIndex) {
       const rowNum = index + 1;
+      const r = { ...row };
 
-      // A. Item Code check (COMPULSORY)
-      if (!row.itemNo || !row.itemNo.trim()) {
-        setNotification({
-          type: 'error',
-          message: `आइटम पंक्ति #${rowNum}: आइटम कोड (Item Code) दर्ज करना अनिवार्य है!`
-        });
-        setTimeout(() => setNotification(null), 5000);
-        return null;
+      // Description / Name check
+      if (!r.name || !r.name.trim()) {
+        const invMatch = inventory.find(it => String(it.itemNo || '').trim().toUpperCase() === String(r.itemNo || '').trim().toUpperCase());
+        if (invMatch && invMatch.name) {
+          r.name = invMatch.name;
+        } else {
+          setNotification({
+            type: 'error',
+            message: `आइटम पंक्ति #${rowNum}: सामान का विवरण / नाम (Item Description) दर्ज करना अनिवार्य है!`
+          });
+          setTimeout(() => setNotification(null), 5000);
+          return null;
+        }
       }
 
-      // B. Item Description / Name check (COMPULSORY)
-      if (!row.name || !row.name.trim()) {
-        setNotification({
-          type: 'error',
-          message: `आइटम पंक्ति #${rowNum} (${row.itemNo}): सामान का विवरण / नाम (Item Description) दर्ज करना अनिवार्य है!`
-        });
-        setTimeout(() => setNotification(null), 5000);
-        return null;
+      // Quantity check (must be >= 1)
+      const qtyNum = Number(r.qty);
+      if (!r.qty || isNaN(qtyNum) || qtyNum < 1) {
+        r.qty = 1;
       }
 
-      // C. Item Quantity check (COMPULSORY, >= 1)
-      const qtyNum = Number(row.qty);
-      if (!row.qty || isNaN(qtyNum) || qtyNum < 1) {
-        setNotification({
-          type: 'error',
-          message: `आइटम पंक्ति #${rowNum} (${row.name || row.itemNo}): मात्रा (Quantity) कम से कम 1 दर्ज करना अनिवार्य है!`
-        });
-        setTimeout(() => setNotification(null), 5000);
-        return null;
-      }
-
-      // D. Rate / Price check (COMPULSORY, > 0)
-      const priceNum = Number(row.salePriceIncGst);
-      const rateNum = Number(row.rate);
+      // Rate / Price check (must be > 0)
+      const priceNum = Number(r.salePriceIncGst);
+      const rateNum = Number(r.rate);
       if ((isNaN(priceNum) || priceNum <= 0) && (isNaN(rateNum) || rateNum <= 0)) {
         setNotification({
           type: 'error',
-          message: `आइटम पंक्ति #${rowNum} (${row.name || row.itemNo}): बिक्री दर / रेट (Rate ₹) दर्ज करना अनिवार्य है!`
+          message: `आइटम पंक्ति #${rowNum} (${r.name}): बिक्री दर / रेट (Rate ₹) दर्ज करना अनिवार्य है!`
         });
         setTimeout(() => setNotification(null), 5000);
         return null;
       }
+
+      // Auto-assign Item Code if missing
+      if (!r.itemNo || !r.itemNo.trim()) {
+        r.itemNo = generateNextItemCode ? generateNextItemCode(r.name, 'Mobile', rows, false) : `ITM-${100 + rowNum}`;
+      }
+
+      // Auto-assign Serial No / Key if present in inventory
+      if (!r.serialNo || !r.serialNo.trim()) {
+        const invMatch = inventory.find(it => String(it.itemNo || '').trim().toUpperCase() === String(r.itemNo || '').trim().toUpperCase());
+        r.serialNo = getAutoSerialsForItem(invMatch, 1, rows, index) || '';
+      }
+
+      // Enforce 1:1 rule: if item has a serial key, its quantity is strictly 1
+      if (r.serialNo && r.serialNo.trim()) {
+        r.qty = 1;
+      }
+
+      validRows.push(r);
     }
 
-    const validRows = activeRowsWithIndex.map(({ row }) => row);
+    // 4a. Duplicate Item Code Validation
+    const seenItemCodes = new Set();
+    for (let r = 0; r < validRows.length; r++) {
+      const code = String(validRows[r].itemNo || '').trim().toUpperCase();
+      if (code) {
+        if (seenItemCodes.has(code)) {
+          setNotification({
+            type: 'error',
+            message: `डुप्लीकेट आइटम कोड "${code}" बिल में दोबारा दर्ज है! कृपया एक ही पंक्ति में मात्रा (Qty) बढ़ाएं।`
+          });
+          setTimeout(() => setNotification(null), 5000);
+          return null;
+        }
+        seenItemCodes.add(code);
+      }
+    }
 
-    // 4. Strict Serial Number Duplicate Validation
+    // 4b. Duplicate Serial Number and Already Sold Validation
     const seenSerials = new Set();
     for (let r = 0; r < validRows.length; r++) {
       const it = validRows[r];
       const serials = parseSerials(it.serialNo);
       for (const s of serials) {
-        // A. Duplicate within this same bill
         if (seenSerials.has(s)) {
           setNotification({
             type: 'error',
@@ -590,12 +824,29 @@ export default function BillGenerateTab() {
         }
         seenSerials.add(s);
 
-        // B. Already sold in previous bill
         const soldInfo = isSerialSold(s, editingBill?.id);
         if (soldInfo) {
           setNotification({
             type: 'error',
-            message: `सीरियल/IMEI "${s}" पहले ही बिल #${soldInfo.billNo} (दिनांक: ${soldInfo.date}, ग्राहक: ${soldInfo.customerName}) में बेचा जा चुका है! दोबारा बेचने की अनुमति नहीं है।`
+            message: `सीरियल/की "${s}" पहले ही बिल #${soldInfo.billNo} (${soldInfo.customerName}) में बेचा जा चुका है! एक बार बिका हुआ आइटम दोबारा नहीं बेचा जा सकता।`
+          });
+          setTimeout(() => setNotification(null), 5000);
+          return null;
+        }
+      }
+    }
+
+    // 4c. Stock Quantity Validation
+    for (let r = 0; r < validRows.length; r++) {
+      const it = validRows[r];
+      const invMatch = inventory.find(i => String(i.itemNo || '').trim().toUpperCase() === String(it.itemNo || '').trim().toUpperCase());
+      if (invMatch) {
+        const available = Number(invMatch.stockQty) || 0;
+        const requestedQty = Number(it.qty) || 1;
+        if (available < requestedQty && !editingBill) {
+          setNotification({
+            type: 'error',
+            message: `आइटम "${it.itemNo}" (${it.name}) की मात्रा (${requestedQty}) उपलब्ध स्टॉक (${available}) से अधिक है!`
           });
           setTimeout(() => setNotification(null), 5000);
           return null;
@@ -605,14 +856,14 @@ export default function BillGenerateTab() {
 
     return {
       ...(editingBill ? { id: editingBill.id } : {}),
-      billNo: editingBill ? editingBill.billNo : generateNextBillNo(), // Non-editable, auto next
+      billNo: editingBill ? editingBill.billNo : generateNextBillNo(),
       date,
-      customerName: customerName.trim().toUpperCase().slice(0, 100),
+      customerName: finalCustomerName,
       customerMobile: cleanMobile,
       customerGstin: customerGstin.trim().toUpperCase(),
       customerAddress: customerAddress.trim(),
       paymentMode,
-      theme: settings.selectedTheme || 'classic', // Automatically uses seller's default theme
+      theme: settings.selectedTheme || 'classic',
       items: validRows.map(it => ({
         ...it,
         serialNo: it.serialNo ? parseSerials(it.serialNo).join(', ') : ''
@@ -629,33 +880,56 @@ export default function BillGenerateTab() {
     };
   };
 
-  // Save Bill
+  // Trigger Confirmation Modal for Save Bill
   const handleSave = () => {
     const billData = prepareBillData();
     if (!billData) return;
-
-    const saved = saveSaleBill(billData);
-    setNotification({
-      type: 'success',
-      message: `जीएसटी बिल #${saved.billNo} सफलतापूर्वक सुरक्षित हो गया! अगला इनवॉइस नंबर स्वतः सेट हो गया।`
-    });
-    setTimeout(() => setNotification(null), 4000);
-    resetForm();
+    setPendingBillData(billData);
+    setShouldPrintAfterSave(false);
+    setShowConfirmModal(true);
   };
 
-  // Save and Print
+  // Trigger Confirmation Modal for Save and Print
   const handleSaveAndPrint = () => {
     const billData = prepareBillData();
     if (!billData) return;
+    setPendingBillData(billData);
+    setShouldPrintAfterSave(true);
+    setShowConfirmModal(true);
+  };
 
-    const saved = saveSaleBill(billData);
-    triggerPrint(saved);
-    setNotification({
-      type: 'success',
-      message: `बिल #${saved.billNo} सेव हो गया। प्रिंट विंडो खुल रही है...`
-    });
-    setTimeout(() => setNotification(null), 4000);
-    resetForm();
+  // Final Confirmed Execution
+  const confirmAndExecuteSave = () => {
+    if (!pendingBillData) return;
+    try {
+      const saved = saveSaleBill(pendingBillData);
+      setShowConfirmModal(false);
+      const isPrinted = shouldPrintAfterSave;
+      setPendingBillData(null);
+
+      if (isPrinted) {
+        triggerPrint(saved);
+        setNotification({
+          type: 'success',
+          message: `जीएसटी बिल #${saved.billNo} सफलतापूर्वक जनरेट हो गया! (कुल राशि: ₹${saved.grandTotal}) प्रिंट विंडो खुल रही है...`
+        });
+      } else {
+        setNotification({
+          type: 'success',
+          message: `जीएसटी बिल #${saved.billNo} सफलतापूर्वक जनरेट हो गया! (कुल राशि: ₹${saved.grandTotal})`
+        });
+      }
+      setTimeout(() => setNotification(null), 5000);
+      resetForm();
+    } catch (err) {
+      console.error('Save bill error:', err);
+      setShowConfirmModal(false);
+      setNotification({
+        type: 'error',
+        message: `बिल सेव करने में त्रुटि: ${err?.message || 'अज्ञात त्रुटि'}`
+      });
+      setTimeout(() => setNotification(null), 6000);
+    }
   };
 
   // Live preview bill
@@ -965,9 +1239,9 @@ export default function BillGenerateTab() {
                   आइटम कोड <span className="text-rose-600 font-bold">*</span>
                 </th>
                 <th className="py-2.5 px-3 text-left">
-                  सामान / विवरण (Item Description) <span className="text-rose-600 font-bold">*</span>
+                  सामान / विवरण (Auto Fill पुष्टि)
                 </th>
-                <th className="py-2.5 px-2 w-48 text-left">सीरियल / IMEI / Key नं.</th>
+                <th className="py-2.5 px-2 w-48 text-left">सीरियल / IMEI (Auto Fill)</th>
                 <th className="py-2.5 px-2 w-16">HSN</th>
                 <th className="py-2.5 px-2 w-16">
                   मात्रा <span className="text-rose-600 font-bold">*</span>
@@ -1031,6 +1305,7 @@ export default function BillGenerateTab() {
                           value={row.itemNo}
                           onChange={(e) => handleItemNoChange(index, e.target.value)}
                           onFocus={() => setActiveSuggestionRow(index)}
+                          onBlur={() => handleItemNoBlur(index)}
                           placeholder="कोड *"
                           className={`w-full px-2 py-1.5 font-mono text-xs font-bold uppercase border rounded focus:ring-2 focus:ring-indigo-500 outline-hidden ${
                             isMissingCode ? 'border-rose-400 bg-rose-50/50 text-rose-900 ring-1 ring-rose-300' : 'border-slate-300 bg-white'
@@ -1068,11 +1343,11 @@ export default function BillGenerateTab() {
                         )}
                       </div>
 
-                      {/* Autocomplete Suggestion Dropdown */}
+                      {/* Autocomplete Suggestion Dropdown (Only unsold available stock items) */}
                       {activeSuggestionRow === index && (
                         <div className="absolute left-0 top-full mt-1 z-30 w-72 bg-white rounded-lg shadow-xl border border-slate-200 py-1 max-h-48 overflow-y-auto">
                           <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-100 flex justify-between bg-slate-50">
-                            <span>उपलब्ध स्टॉक से चुनें</span>
+                            <span>उपलब्ध अनसोल्ड स्टॉक से चुनें</span>
                             <button
                               type="button"
                               onClick={() => setActiveSuggestionRow(null)}
@@ -1082,171 +1357,80 @@ export default function BillGenerateTab() {
                             </button>
                           </div>
                           {inventory
-                            .filter(item => 
-                              !row.itemNo || 
-                              item.itemNo.toLowerCase().includes(row.itemNo.toLowerCase()) || 
-                              item.name.toLowerCase().includes(row.itemNo.toLowerCase())
-                            )
+                            .filter(item => {
+                              const avail = getAvailableStockForItem(item, index, rows);
+                              if (avail <= 0) return false;
+                              if (!row.itemNo) return true;
+                              const q = row.itemNo.toLowerCase().trim();
+                              return item.itemNo.toLowerCase().includes(q) || item.name.toLowerCase().includes(q);
+                            })
                             .slice(0, 15)
-                            .map((item) => (
-                              <button
-                                key={item.id}
-                                type="button"
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  selectInventoryItem(index, item);
-                                  setActiveSuggestionRow(null);
-                                }}
-                                className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 flex items-center justify-between text-xs border-b border-slate-50 last:border-0 cursor-pointer"
-                              >
-                                <div>
-                                  <span className="font-mono font-bold text-indigo-700 mr-2">
-                                    {item.itemNo}
-                                  </span>
-                                  <span className="font-medium text-slate-800">{item.name}</span>
-                                </div>
-                                <div className="text-right shrink-0 ml-2">
-                                  <div className="font-mono font-bold text-slate-900">₹{item.salePrice}</div>
-                                  <span className="text-[10px] text-slate-500">
-                                    स्टॉक: {item.stockQty}
-                                  </span>
-                                </div>
-                              </button>
-                            ))}
-                          {inventory.filter(item => !row.itemNo || item.itemNo.toLowerCase().includes(row.itemNo.toLowerCase()) || item.name.toLowerCase().includes(row.itemNo.toLowerCase())).length === 0 && (
+                            .map((item) => {
+                              const avail = getAvailableStockForItem(item, index, rows);
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    selectInventoryItem(index, item);
+                                    setActiveSuggestionRow(null);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 flex items-center justify-between text-xs border-b border-slate-50 last:border-0 cursor-pointer"
+                                >
+                                  <div>
+                                    <span className="font-mono font-bold text-indigo-700 mr-2">
+                                      {item.itemNo}
+                                    </span>
+                                    <span className="font-medium text-slate-800">{item.name}</span>
+                                  </div>
+                                  <div className="text-right shrink-0 ml-2">
+                                    <div className="font-mono font-bold text-slate-900">₹{item.salePrice}</div>
+                                    <span className="text-[10px] text-emerald-600 font-bold">
+                                      उपलब्ध: {avail}
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          {inventory.filter(item => getAvailableStockForItem(item, index, rows) > 0 && (!row.itemNo || item.itemNo.toLowerCase().includes(row.itemNo.toLowerCase()) || item.name.toLowerCase().includes(row.itemNo.toLowerCase()))).length === 0 && (
                             <div className="p-2.5 text-center text-xs text-slate-400">
-                              कोई स्टॉक आइटम नहीं मिला
+                              कोई उपलब्ध / अनसोल्ड स्टॉक आइटम नहीं मिला
                             </div>
                           )}
                         </div>
                       )}
                     </td>
 
-                    {/* Item Name / Description */}
+                    {/* Item Name / Description (Disabled / Read-only for Confirmation) */}
                     <td className="py-2 px-3 relative">
                       <input
                         type="text"
-                        value={row.name}
-                        onFocus={() => setActiveNameSuggestionRow(index)}
-                        onBlur={() => handleNameBlur(index)}
-                        onChange={(e) => {
-                          handleCellChange(index, 'name', e.target.value);
-                          setActiveNameSuggestionRow(index);
-                        }}
-                        placeholder="सामान / विवरण (उदा. OnePlus Nord / Charger) *"
-                        className={`w-full px-2 py-1.5 text-xs font-medium border rounded focus:ring-2 focus:ring-indigo-500 outline-hidden ${
-                          isMissingName ? 'border-rose-400 bg-rose-50/50 text-rose-900 ring-1 ring-rose-300' : 'border-slate-300 bg-white'
-                        }`}
+                        readOnly
+                        disabled
+                        tabIndex={-1}
+                        value={row.name || ''}
+                        placeholder="कोड डालते ही नाम स्वतः आएगा (Auto)"
+                        title="पुष्टि: सामान का विवरण आइटम कोड के अनुसार स्वतः भरता है (Disabled)"
+                        className="w-full px-2 py-1.5 text-xs font-semibold border border-slate-300 rounded bg-slate-100 text-slate-800 cursor-not-allowed outline-hidden select-none"
                       />
-
-                      {/* Name Autocomplete Dropdown */}
-                      {activeNameSuggestionRow === index && (
-                        <div className="absolute left-0 top-full mt-1 z-30 w-80 bg-white rounded-lg shadow-xl border border-slate-200 py-1 max-h-52 overflow-y-auto">
-                          <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-100 flex justify-between bg-slate-50">
-                            <span>सामान नाम से चुनें (Auto-Fill)</span>
-                            <button
-                              type="button"
-                              onClick={() => setActiveNameSuggestionRow(null)}
-                              className="text-slate-400 hover:text-slate-600 font-bold cursor-pointer"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                          {inventory
-                            .filter(it => !row.name || it.name.toLowerCase().includes(row.name.toLowerCase()) || (it.itemNo && it.itemNo.toLowerCase().includes(row.name.toLowerCase())))
-                            .slice(0, 15)
-                            .map((item) => (
-                              <button
-                                key={item.id || item.itemNo}
-                                type="button"
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  selectInventoryItem(index, item);
-                                  setActiveNameSuggestionRow(null);
-                                }}
-                                className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 flex items-center justify-between text-xs border-b border-slate-50 last:border-0 cursor-pointer"
-                              >
-                                <div>
-                                  <span className="font-medium text-slate-800">{item.name}</span>
-                                  <div className="text-[10px] font-mono text-indigo-700">
-                                    कोड: {item.itemNo} | श्रेणी: {item.category || 'Mobile'}
-                                  </div>
-                                </div>
-                                <div className="text-right shrink-0 ml-2">
-                                  <div className="font-mono font-bold text-slate-900">₹{item.salePrice}</div>
-                                  <span className="text-[10px] text-slate-500">स्टॉक: {item.stockQty}</span>
-                                </div>
-                              </button>
-                            ))}
-                          {inventory.filter(it => !row.name || it.name.toLowerCase().includes(row.name.toLowerCase()) || (it.itemNo && it.itemNo.toLowerCase().includes(row.name.toLowerCase()))).length === 0 && (
-                            <div className="p-2.5 text-center text-xs text-slate-400">
-                              कोई पूर्व सामान नहीं मिला। नया नाम लिखें।
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </td>
 
-                    {/* DEDICATED SERIAL / IMEI / KEY COLUMN */}
+                    {/* DEDICATED SERIAL / IMEI / KEY COLUMN (Disabled / Read-only for Confirmation) */}
                     <td className="py-2 px-2 relative">
                       <div>
                         <input
                           type="text"
+                          readOnly
+                          disabled
+                          tabIndex={-1}
                           value={row.serialNo || ''}
-                          onChange={(e) => handleCellChange(index, 'serialNo', e.target.value.toUpperCase())}
-                          placeholder="864920... / SN-001"
-                          className={`w-full px-2 py-1.5 font-mono text-xs uppercase border rounded outline-hidden ${
-                            hasRowSerialError ? 'border-rose-500 bg-rose-50 text-rose-900 font-bold' : 'border-slate-300 bg-white'
+                          placeholder="सीरियल की स्वतः आएगी (Auto)"
+                          title="पुष्टि: सीरियल / IMEI की आइटम कोड के अनुसार स्वतः भरती है (Disabled)"
+                          className={`w-full px-2 py-1.5 font-mono text-xs uppercase border rounded outline-hidden select-none cursor-not-allowed ${
+                            hasRowSerialError ? 'border-rose-500 bg-rose-50 text-rose-900 font-bold' : 'border-slate-300 bg-slate-100 text-slate-800'
                           }`}
-                          title="IMEI या सीरियल नंबर दर्ज करें या बारकोड स्कैन करें"
                         />
-                        {/* Dropdown of available in-stock IMEIs */}
-                        {invItem && invItem.serialNumbers && invItem.serialNumbers.length > 0 && (
-                          <div className="relative mt-1">
-                            <button
-                              type="button"
-                              onClick={() => setActiveSerialSuggestionRow(activeSerialSuggestionRow === index ? null : index)}
-                              className="text-[10px] text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-1.5 py-0.5 rounded flex items-center justify-between w-full font-bold cursor-pointer transition-colors"
-                            >
-                              <span>स्टॉक IMEI ({invItem.serialNumbers.length})</span>
-                              <span>▾</span>
-                            </button>
-                            {activeSerialSuggestionRow === index && (
-                              <div className="absolute left-0 top-full mt-1 z-40 w-56 bg-white rounded-lg shadow-xl border border-slate-200 py-1 max-h-40 overflow-y-auto">
-                                <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-100 flex justify-between bg-slate-50">
-                                  <span>स्टॉक IMEI चुनें</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => setActiveSerialSuggestionRow(null)}
-                                    className="text-slate-400 hover:text-slate-600 font-bold"
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                                {invItem.serialNumbers.map((sn, sIdx) => {
-                                  const isUsedInCurrentBill = rows.some((r, rIdx) => rIdx !== index && parseSerials(r.serialNo).includes(sn.toUpperCase()));
-                                  return (
-                                    <button
-                                      key={sIdx}
-                                      type="button"
-                                      disabled={isUsedInCurrentBill}
-                                      onClick={() => {
-                                        handleCellChange(index, 'serialNo', sn);
-                                        setActiveSerialSuggestionRow(null);
-                                      }}
-                                      className={`w-full text-left px-2.5 py-1.5 text-xs font-mono flex items-center justify-between border-b border-slate-50 last:border-0 ${
-                                        isUsedInCurrentBill ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'hover:bg-indigo-50 text-indigo-950 font-bold cursor-pointer'
-                                      }`}
-                                    >
-                                      <span>{sn}</span>
-                                      {isUsedInCurrentBill ? <span className="text-[9px] text-rose-500 font-sans">चयनित</span> : <span className="text-[9px] text-emerald-600 font-sans">उपलब्ध</span>}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        )}
                         {/* Live Error warning badge */}
                         {hasRowSerialError && (
                           <div className="text-[10px] text-rose-600 font-bold flex items-center gap-0.5 mt-0.5 leading-tight">
@@ -1268,16 +1452,21 @@ export default function BillGenerateTab() {
                       />
                     </td>
 
-                    {/* Qty */}
+                    {/* Qty (Locked to 1 if serialized item) */}
                     <td className="py-2 px-2">
                       <input
                         type="number"
                         min="1"
-                        value={row.qty}
+                        readOnly={Boolean(row.serialNo && row.serialNo.trim())}
+                        disabled={Boolean(row.serialNo && row.serialNo.trim())}
+                        value={row.serialNo && row.serialNo.trim() ? 1 : row.qty}
                         onChange={(e) => handleCellChange(index, 'qty', e.target.value)}
                         placeholder="1 *"
-                        className={`w-full px-1.5 py-1.5 text-center font-mono font-bold text-xs border rounded focus:ring-2 focus:ring-indigo-500 outline-hidden ${
-                          isMissingQty ? 'border-rose-400 bg-rose-50/50 text-rose-900 ring-1 ring-rose-300' : 'border-slate-300 bg-white'
+                        title={row.serialNo && row.serialNo.trim() ? 'सीरियल वाले सामान का 1 कोड = 1 पीस (मात्रा 1 फिक्स)' : 'मात्रा दर्ज करें'}
+                        className={`w-full px-1.5 py-1.5 text-center font-mono font-bold text-xs border rounded outline-hidden ${
+                          row.serialNo && row.serialNo.trim()
+                            ? 'bg-slate-100 text-slate-700 border-slate-300 cursor-not-allowed select-none'
+                            : isMissingQty ? 'border-rose-400 bg-rose-50/50 text-rose-900 ring-1 ring-rose-300' : 'border-slate-300 bg-white'
                         }`}
                       />
                     </td>
@@ -1435,7 +1624,25 @@ export default function BillGenerateTab() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-end">
+          <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full lg:w-auto justify-end">
+            {notification && (
+              <div
+                className={`w-full p-2.5 rounded-lg flex items-center gap-2 text-xs font-bold transition-all shadow-xs ${
+                  notification.type === 'success'
+                    ? 'bg-emerald-600 text-white'
+                    : notification.type === 'warning'
+                    ? 'bg-amber-600 text-white'
+                    : 'bg-rose-600 text-white'
+                }`}
+              >
+                {notification.type === 'success' ? (
+                  <CheckCircle className="w-4 h-4 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                )}
+                <span>{notification.message}</span>
+              </div>
+            )}
             <button
               type="button"
               onClick={handleSave}
@@ -1483,7 +1690,95 @@ export default function BillGenerateTab() {
         </div>
       )}
 
-      {/* 7. Quick Purchase Modal */}
+      {/* 7. Modal: Bill Generation Confirmation */}
+      {showConfirmModal && pendingBillData && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all scale-100">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-indigo-200" />
+                <h3 className="font-extrabold text-base">बिल जनरेशन की पुष्टि (Confirm Bill)</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  setPendingBillData(null);
+                }}
+                className="text-white/80 hover:text-white hover:bg-white/10 rounded-lg p-1 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <p className="text-sm font-semibold text-slate-800">
+                क्या आप वाकई यह बिल सुरक्षित {shouldPrintAfterSave ? 'एवं प्रिंट' : ''} करना चाहते हैं?
+              </p>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2 text-xs">
+                <div className="flex justify-between items-center py-0.5 border-b border-slate-200">
+                  <span className="text-slate-500 font-bold">बिल नंबर (Invoice No):</span>
+                  <span className="font-mono font-black text-indigo-700">{pendingBillData.billNo}</span>
+                </div>
+                <div className="flex justify-between items-center py-0.5 border-b border-slate-200">
+                  <span className="text-slate-500 font-bold">दिनांक (Date):</span>
+                  <span className="font-mono text-slate-800">{pendingBillData.date}</span>
+                </div>
+                <div className="flex justify-between items-center py-0.5 border-b border-slate-200">
+                  <span className="text-slate-500 font-bold">ग्राहक (Customer):</span>
+                  <span className="font-bold text-slate-900">{pendingBillData.customerName}</span>
+                </div>
+                {pendingBillData.customerMobile && (
+                  <div className="flex justify-between items-center py-0.5 border-b border-slate-200">
+                    <span className="text-slate-500 font-bold">मोबाइल नं.:</span>
+                    <span className="font-mono text-slate-800">{pendingBillData.customerMobile}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center py-0.5 border-b border-slate-200">
+                  <span className="text-slate-500 font-bold">कुल सामान (Items Count):</span>
+                  <span className="font-bold text-slate-800">{pendingBillData.items.length} आइटम्स</span>
+                </div>
+                <div className="flex justify-between items-center pt-1 text-sm font-black">
+                  <span className="text-indigo-900">कुल देय राशि (Grand Total):</span>
+                  <span className="font-mono text-emerald-700 text-base">₹{Number(pendingBillData.grandTotal || 0).toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-[11px] text-slate-500 bg-amber-50 border border-amber-200 p-2.5 rounded-lg">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>बिल बनते ही स्टॉक से सामान स्वतः घट जाएगा और सीरियल नंबर सोल्ड मार्क हो जाएगा।</span>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="bg-slate-100 px-6 py-3.5 border-t border-slate-200 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  setPendingBillData(null);
+                }}
+                className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-200 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+              >
+                रद्द करें (Cancel)
+              </button>
+              <button
+                type="button"
+                onClick={confirmAndExecuteSave}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-md shadow-indigo-200 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Check className="w-4 h-4" />
+                <span>हाँ, बिल बनाएं (Yes, Generate)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 8. Quick Purchase Modal */}
       <QuickPurchaseModal
         isOpen={quickPurchaseRowIndex !== null}
         onClose={() => setQuickPurchaseRowIndex(null)}

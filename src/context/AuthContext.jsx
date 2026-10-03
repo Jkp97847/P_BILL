@@ -1,4 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import {
+  fetchUsersFromCloud,
+  saveUserToCloud,
+  deleteUserFromCloud,
+  bulkSyncUsersToCloud,
+  fetchPlatformConfigFromCloud,
+  savePlatformConfigToCloud
+} from '../lib/supabaseSync.js';
 
 const AuthContext = createContext();
 
@@ -280,12 +288,49 @@ const getInitialSessionUser = () => {
     }
   }, [selectedModule]);
 
-  // Sync users to localStorage (User accounts and passwords must be persistent)
+  // Cloud sync: Fetch users and platform config from Supabase on mount
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const cloudUsers = await fetchUsersFromCloud();
+        if (isMounted) {
+          if (cloudUsers && cloudUsers.length > 0) {
+            setUsers(prev => {
+              const combined = [...cloudUsers];
+              INITIAL_USERS.forEach(initU => {
+                const idx = combined.findIndex(u => u.username.toLowerCase() === initU.username.toLowerCase());
+                if (idx < 0) {
+                  combined.push(initU);
+                }
+              });
+              return combined;
+            });
+          } else {
+            bulkSyncUsersToCloud(users);
+          }
+        }
+
+        const cloudConfig = await fetchPlatformConfigFromCloud();
+        if (isMounted && cloudConfig) {
+          setPlatformConfig(cloudConfig);
+        } else if (isMounted) {
+          savePlatformConfigToCloud(platformConfig);
+        }
+      } catch (err) {
+        console.warn('Initial cloud auth sync:', err);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Sync users to localStorage and Supabase Cloud
   useEffect(() => {
     try {
       localStorage.setItem('mobile_billing_users', JSON.stringify(users));
+      bulkSyncUsersToCloud(users);
     } catch (err) {
-      console.error('Error saving users to localStorage:', err);
+      console.error('Error saving users to storage/cloud:', err);
     }
   }, [users]);
 
@@ -320,10 +365,11 @@ const getInitialSessionUser = () => {
     }
   }, [impersonatedSeller]);
 
-  // Sync platform config to localStorage
+  // Sync platform config to localStorage and Supabase Cloud
   useEffect(() => {
     try {
       localStorage.setItem('mobile_billing_platform_config', JSON.stringify(platformConfig));
+      savePlatformConfigToCloud(platformConfig);
     } catch (err) {
       console.error('Error saving platform config:', err);
     }
@@ -635,6 +681,7 @@ const getInitialSessionUser = () => {
   // Reject / Delete Seller
   const rejectSeller = (sellerId) => {
     setUsers(prev => prev.filter(u => u.id !== sellerId));
+    deleteUserFromCloud(sellerId);
     return { success: true, message: 'सेलर का आवेदन निरस्त/हटा दिया गया है।' };
   };
 
