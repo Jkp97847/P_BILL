@@ -30,7 +30,8 @@ export default function Navbar() {
   } = useAuth();
   const { navigate } = useNavigationHistory();
 
-  // 5 Tabs: SALE, SALE REPORT, PURCHAGE, STOCK REPORT, SETTING
+  // 5 Tabs in User-Specified Order:
+  // 1st SALE, 2nd PURCHAGE, 3rd REPORT, 4th STOCK, 5th SETTING
   const tabs = [
     {
       id: 'generate',
@@ -40,25 +41,25 @@ export default function Navbar() {
       badge: null
     },
     {
-      id: 'report',
-      label: 'SALE REPORT',
-      hotkey: 'F2',
-      icon: FileSpreadsheet,
-      badge: gstBills.length > 0 ? gstBills.length : null
-    },
-    {
       id: 'purchase',
       label: 'PURCHAGE',
-      hotkey: 'F3',
+      hotkey: 'F2',
       icon: Truck,
       badge: null
     },
     {
+      id: 'report',
+      label: 'REPORT',
+      hotkey: 'F3',
+      icon: FileSpreadsheet,
+      badge: null
+    },
+    {
       id: 'stock',
-      label: 'STOCK REPORT',
+      label: 'STOCK',
       hotkey: 'F4',
       icon: Boxes,
-      badge: inventory.length > 0 ? inventory.length : null
+      badge: null
     },
     {
       id: 'format',
@@ -69,7 +70,7 @@ export default function Navbar() {
     }
   ];
 
-  // Optional Global Keyboard Shortcuts (F1 to F5)
+  // Global Keyboard Shortcuts (F1 to F5)
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'F1') {
@@ -78,12 +79,12 @@ export default function Navbar() {
         navigate({ module: 'gst_billing', tab: 'generate' });
       } else if (e.key === 'F2') {
         e.preventDefault();
-        setActiveTab('report');
-        navigate({ module: 'gst_billing', tab: 'report' });
-      } else if (e.key === 'F3') {
-        e.preventDefault();
         setActiveTab('purchase');
         navigate({ module: 'gst_billing', tab: 'purchase' });
+      } else if (e.key === 'F3') {
+        e.preventDefault();
+        setActiveTab('report');
+        navigate({ module: 'gst_billing', tab: 'report' });
       } else if (e.key === 'F4') {
         e.preventDefault();
         setActiveTab('stock');

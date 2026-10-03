@@ -348,7 +348,7 @@ export default function ReportTab() {
           }`}
         >
           <Receipt className="w-4 h-4" />
-          <span>GST बिक्री रिपोर्ट (Sales Bills: {gstBills.length})</span>
+          <span>1. बिक्री रिपोर्ट (Sales Report: {gstBills.length})</span>
         </button>
 
         <button
@@ -361,7 +361,7 @@ export default function ReportTab() {
           }`}
         >
           <Truck className="w-4 h-4" />
-          <span>खरीद रिपोर्ट (Purchase Invoices: {purchases.length})</span>
+          <span>2. खरीद रिपोर्ट (Purchase Report: {purchases.length})</span>
         </button>
       </div>
 
