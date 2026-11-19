@@ -78,6 +78,23 @@
     background-color: #ffffff !important;
   }
 
+  /* Multi-Bill & Multi-Copy Printing Container & Page Breaks */
+  .multi-bill-print-container {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .printable-bill-wrapper {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .bill-page-break,
+  .printable-bill-wrapper:not(:last-child) {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
   /* Bill Print Layout: Fits comfortably on 1 A4 Page if <=10 items, flows cleanly to Page 2+ if >10 items */
   #printable-bill {
     display: block !important;

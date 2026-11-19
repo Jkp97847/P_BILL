@@ -2,8 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useBilling } from '../../context/BillingContext';
 import PrintableBill from '../PrintableBill';
 import QuickPurchaseModal from '../modals/QuickPurchaseModal';
+import MultiBillPrintModal from '../modals/MultiBillPrintModal';
 import { 
   Printer, 
+  Copy,
+  Layers,
   Save, 
   RotateCcw, 
   Eye, 
@@ -57,6 +60,8 @@ export default function BillGenerateTab() {
     editingBill,
     cancelEditingBill,
     triggerPrint,
+    triggerMultiCopyBillPrint,
+    triggerMultiBillPrint,
     setActivePrintBill,
     validateSerial,
     isSerialSold,
@@ -92,6 +97,8 @@ export default function BillGenerateTab() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingBillData, setPendingBillData] = useState(null);
   const [shouldPrintAfterSave, setShouldPrintAfterSave] = useState(false);
+  const [savePrintCopies, setSavePrintCopies] = useState(2); // 1: Single, 2: Original+Duplicate, 3: All 3
+  const [multiPrintModalBill, setMultiPrintModalBill] = useState(null);
   const [quickPurchaseRowIndex, setQuickPurchaseRowIndex] = useState(null);
   const [quickPurchaseItemNo, setQuickPurchaseItemNo] = useState('');
   const [activeSuggestionRow, setActiveSuggestionRow] = useState(null);
@@ -1026,6 +1033,17 @@ export default function BillGenerateTab() {
     if (!billData) return;
     setPendingBillData(billData);
     setShouldPrintAfterSave(true);
+    setSavePrintCopies(1);
+    setShowConfirmModal(true);
+  };
+
+  // Trigger Confirmation Modal for Save and Multi-Print
+  const handleSaveAndMultiPrint = () => {
+    const billData = prepareBillData();
+    if (!billData) return;
+    setPendingBillData(billData);
+    setShouldPrintAfterSave(true);
+    setSavePrintCopies(2);
     setShowConfirmModal(true);
   };
 
@@ -1036,14 +1054,24 @@ export default function BillGenerateTab() {
       const saved = saveSaleBill(pendingBillData);
       setShowConfirmModal(false);
       const isPrinted = shouldPrintAfterSave;
+      const copiesCount = savePrintCopies;
       setPendingBillData(null);
 
       if (isPrinted) {
-        triggerPrint(saved);
-        setNotification({
-          type: 'success',
-          message: `जीएसटी बिल #${saved.billNo} सफलतापूर्वक जनरेट हो गया! (कुल राशि: ₹${saved.grandTotal}) प्रिंट विंडो खुल रही है...`
-        });
+        if (copiesCount > 1) {
+          const copiesToPrint = copiesCount === 2 ? [1, 2] : [1, 2, 3];
+          triggerMultiCopyBillPrint(saved, copiesToPrint);
+          setNotification({
+            type: 'success',
+            message: `जीएसटी बिल #${saved.billNo} जनरेट हो गया! (${copiesCount} प्रतियां मल्टी प्रिंट हो रही हैं...)`
+          });
+        } else {
+          triggerPrint(saved);
+          setNotification({
+            type: 'success',
+            message: `जीएसटी बिल #${saved.billNo} सफलतापूर्वक जनरेट हो गया! (कुल राशि: ₹${saved.grandTotal}) प्रिंट विंडो खुल रही है...`
+          });
+        }
       } else {
         setNotification({
           type: 'success',
@@ -1877,6 +1905,16 @@ export default function BillGenerateTab() {
               <Printer className="w-4 h-4" />
               <span>सेव एवं प्रिंट करें (Save & Print)</span>
             </button>
+
+            <button
+              type="button"
+              onClick={handleSaveAndMultiPrint}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-800 to-slate-900 hover:from-indigo-700 hover:to-slate-800 text-white text-sm font-bold rounded-xl shadow-md shadow-slate-300 transition-all cursor-pointer"
+              title="बिल सेव करें एवं मूल + द्वितीय 2 प्रतियां मल्टी प्रिंट निकालें"
+            >
+              <Copy className="w-4 h-4 text-indigo-300" />
+              <span>सेव एवं मल्टी प्रिंट (Multi-Print)</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1891,14 +1929,25 @@ export default function BillGenerateTab() {
                 लाइव बिल प्रीव्यू (डिफ़ॉल्ट प्रिंट थीम: <span className="capitalize text-indigo-700 font-mono">{settings.selectedTheme || 'classic'}</span>)
               </h3>
             </div>
-            <button
-              type="button"
-              onClick={() => triggerPrint(previewBill)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg cursor-pointer"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>प्रिंट प्रीव्यू (Print)</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setMultiPrintModalBill(previewBill)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg cursor-pointer shadow-xs"
+                title="मल्टी कॉपी बिल प्रिंट (मूल, द्वितीय, तृतीय प्रति)"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>मल्टी बिल प्रिंट (Multi Print)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => triggerPrint(previewBill)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>प्रिंट प्रीव्यू (Print)</span>
+              </button>
+            </div>
           </div>
 
           <div className="bg-white p-2 rounded-xl shadow-lg">
@@ -1964,6 +2013,54 @@ export default function BillGenerateTab() {
                 </div>
               </div>
 
+              {/* Multi-Copy Print Option Selector in Confirm Modal */}
+              {shouldPrintAfterSave && (
+                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-indigo-900">
+                    <span className="flex items-center gap-1">
+                      <Copy className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>प्रिंट प्रतियां (Select Copies):</span>
+                    </span>
+                    <span className="text-indigo-700 font-black">{savePrintCopies} {savePrintCopies === 1 ? 'प्रति' : 'प्रतियां (Multi)'}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSavePrintCopies(1)}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                        savePrintCopies === 1
+                          ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      1 प्रति (मूल)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSavePrintCopies(2)}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                        savePrintCopies === 2
+                          ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      2 प्रतियां (मल्टी)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSavePrintCopies(3)}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                        savePrintCopies === 3
+                          ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      3 प्रतियां (सभी 3)
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center gap-2 text-[11px] text-slate-500 bg-amber-50 border border-amber-200 p-2.5 rounded-lg">
                 <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>बिल बनते ही स्टॉक से सामान स्वतः घट जाएगा और सीरियल नंबर सोल्ड मार्क हो जाएगा।</span>
@@ -1988,14 +2085,26 @@ export default function BillGenerateTab() {
                 className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-md shadow-indigo-200 transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <Check className="w-4 h-4" />
-                <span>हाँ, बिल बनाएं (Yes, Generate)</span>
+                <span>
+                  {shouldPrintAfterSave 
+                    ? `हाँ, बिल बनाएं व ${savePrintCopies > 1 ? `${savePrintCopies} प्रतियां मल्टी प्रिंट` : 'प्रिंट'} करें`
+                    : 'हाँ, बिल बनाएं (Yes, Generate)'}
+                </span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 8. Quick Purchase Modal */}
+      {/* 8. Dedicated Multi-Bill Print Modal */}
+      <MultiBillPrintModal
+        isOpen={Boolean(multiPrintModalBill)}
+        onClose={() => setMultiPrintModalBill(null)}
+        bill={multiPrintModalBill}
+        onPrintCopies={(b, copies) => triggerMultiCopyBillPrint(b, copies)}
+      />
+
+      {/* 9. Quick Purchase Modal */}
       <QuickPurchaseModal
         isOpen={quickPurchaseRowIndex !== null}
         onClose={() => setQuickPurchaseRowIndex(null)}

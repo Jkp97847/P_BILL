@@ -10,33 +10,36 @@ import OceanGstTheme from './themes/gst/OceanGstTheme';
 import AmberGstTheme from './themes/gst/AmberGstTheme';
 import SlateGstTheme from './themes/gst/SlateGstTheme';
 
-export default function PrintableBill({ bill, settings }) {
+export default function PrintableBill({ bill, settings, copyTitle }) {
   if (!bill) return null;
 
+  const effectiveCopyTitle = copyTitle || bill._copyTitle || bill.copyTitle;
+  const billWithCopy = effectiveCopyTitle ? { ...bill, _copyTitle: effectiveCopyTitle } : bill;
+
   // Determine which theme to use (from bill.theme or settings.selectedTheme or fallback to classic)
-  const themeName = bill.theme || settings?.selectedTheme || 'classic';
+  const themeName = billWithCopy.theme || settings?.selectedTheme || 'classic';
 
   switch (themeName) {
     case 'modern':
-      return <ModernGstTheme bill={bill} settings={settings} />;
+      return <ModernGstTheme bill={billWithCopy} settings={settings} />;
     case 'compact':
-      return <CompactGstTheme bill={bill} settings={settings} />;
+      return <CompactGstTheme bill={billWithCopy} settings={settings} />;
     case 'royal':
-      return <RoyalGstTheme bill={bill} settings={settings} />;
+      return <RoyalGstTheme bill={billWithCopy} settings={settings} />;
     case 'emerald':
-      return <EmeraldGstTheme bill={bill} settings={settings} />;
+      return <EmeraldGstTheme bill={billWithCopy} settings={settings} />;
     case 'minimal':
-      return <MinimalistGstTheme bill={bill} settings={settings} />;
+      return <MinimalistGstTheme bill={billWithCopy} settings={settings} />;
     case 'crimson':
-      return <CrimsonGstTheme bill={bill} settings={settings} />;
+      return <CrimsonGstTheme bill={billWithCopy} settings={settings} />;
     case 'ocean':
-      return <OceanGstTheme bill={bill} settings={settings} />;
+      return <OceanGstTheme bill={billWithCopy} settings={settings} />;
     case 'amber':
-      return <AmberGstTheme bill={bill} settings={settings} />;
+      return <AmberGstTheme bill={billWithCopy} settings={settings} />;
     case 'slate':
-      return <SlateGstTheme bill={bill} settings={settings} />;
+      return <SlateGstTheme bill={billWithCopy} settings={settings} />;
     case 'classic':
     default:
-      return <ClassicGstTheme bill={bill} settings={settings} />;
+      return <ClassicGstTheme bill={billWithCopy} settings={settings} />;
   }
 }

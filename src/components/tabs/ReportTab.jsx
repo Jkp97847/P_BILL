@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { useBilling } from '../../context/BillingContext';
 import PrintableBill from '../PrintableBill';
+import MultiBillPrintModal from '../modals/MultiBillPrintModal';
 import { 
   Search, 
   Printer, 
+  Copy,
   Edit3, 
   Trash2, 
   Download, 
@@ -44,6 +46,9 @@ export default function ReportTab() {
     triggerPrint,
     triggerPrintReport,
     triggerPrintPurchase,
+    triggerMultiBillPrint,
+    triggerMultiCopyBillPrint,
+    triggerMultiPurchasePrint,
     exportData,
     importData
   } = useBilling();
@@ -67,6 +72,39 @@ export default function ReportTab() {
   const [previewPurchase, setPreviewPurchase] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null); // { type: 'bill' | 'purchase', id: string, label: string }
   const [notification, setNotification] = useState(null);
+
+  // Multi-Bill Selection States
+  const [selectedBillIds, setSelectedBillIds] = useState([]);
+  const [selectedPurchaseIds, setSelectedPurchaseIds] = useState([]);
+  const [multiPrintModalData, setMultiPrintModalData] = useState(null); // { isOpen, bill, bills, isPurchase }
+
+  const toggleSelectBill = (id) => {
+    setSelectedBillIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllBills = () => {
+    if (selectedBillIds.length === filteredBills.length && filteredBills.length > 0) {
+      setSelectedBillIds([]);
+    } else {
+      setSelectedBillIds(filteredBills.map(b => b.id));
+    }
+  };
+
+  const toggleSelectPurchase = (id) => {
+    setSelectedPurchaseIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllPurchases = () => {
+    if (selectedPurchaseIds.length === filteredPurchases.length && filteredPurchases.length > 0) {
+      setSelectedPurchaseIds([]);
+    } else {
+      setSelectedPurchaseIds(filteredPurchases.map(p => p.id));
+    }
+  };
 
   // Available Financial Years calculated dynamically from bill and purchase dates
   const allDates = useMemo(() => {
@@ -511,6 +549,65 @@ export default function ReportTab() {
             <Printer className="w-4 h-4" />
             <span>वर्तमान लिस्ट प्रिंट ({reportType === 'sales' ? filteredBills.length : filteredPurchases.length})</span>
           </button>
+
+          {/* 3. Multi-Bill Bulk Print Button */}
+          {reportType === 'sales' ? (
+            <button
+              type="button"
+              onClick={() => {
+                const toPrint = selectedBillIds.length > 0 
+                  ? filteredBills.filter(b => selectedBillIds.includes(b.id)) 
+                  : filteredBills;
+                if (toPrint.length === 0) {
+                  setNotification({ type: 'warning', message: 'प्रिंट करने के लिए कोई बिल उपलब्ध नहीं है!' });
+                  setTimeout(() => setNotification(null), 4000);
+                  return;
+                }
+                setMultiPrintModalData({
+                  isOpen: true,
+                  bills: toPrint,
+                  isPurchase: false
+                });
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white text-xs font-black rounded-lg shadow-sm transition-all cursor-pointer whitespace-nowrap"
+              title="एक साथ कई टैक्स इनवॉइस बिल प्रिंट निकालें"
+            >
+              <Copy className="w-4 h-4 text-purple-200" />
+              <span>
+                {selectedBillIds.length > 0 
+                  ? `मल्टी बिल प्रिंट (${selectedBillIds.length} चयनित)` 
+                  : `मल्टी बिल प्रिंट (${filteredBills.length})`}
+              </span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                const toPrint = selectedPurchaseIds.length > 0 
+                  ? filteredPurchases.filter(p => selectedPurchaseIds.includes(p.id)) 
+                  : filteredPurchases;
+                if (toPrint.length === 0) {
+                  setNotification({ type: 'warning', message: 'प्रिंट करने के लिए कोई खरीद वाउचर उपलब्ध नहीं है!' });
+                  setTimeout(() => setNotification(null), 4000);
+                  return;
+                }
+                setMultiPrintModalData({
+                  isOpen: true,
+                  bills: toPrint,
+                  isPurchase: true
+                });
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-purple-700 to-amber-700 hover:from-purple-600 hover:to-amber-600 text-white text-xs font-black rounded-lg shadow-sm transition-all cursor-pointer whitespace-nowrap"
+              title="एक साथ कई खरीद इनवॉइस वाउचर प्रिंट निकालें"
+            >
+              <Copy className="w-4 h-4 text-purple-200" />
+              <span>
+                {selectedPurchaseIds.length > 0 
+                  ? `मल्टी वाउचर प्रिंट (${selectedPurchaseIds.length} चयनित)` 
+                  : `मल्टी वाउचर प्रिंट (${filteredPurchases.length})`}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -557,7 +654,15 @@ export default function ReportTab() {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-100 text-slate-700 font-bold uppercase border-b border-slate-200">
-                  <th className="py-3 px-3 w-10 text-center">#</th>
+                  <th className="py-3 px-2 w-12 text-center">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedBillIds.length === filteredBills.length && filteredBills.length > 0} 
+                      onChange={toggleSelectAllBills}
+                      title="सभी चुनें / हटाएं"
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    />
+                  </th>
                   <th className="py-3 px-3 w-32">इनवॉइस नंबर</th>
                   <th className="py-3 px-3 w-24">दिनांक</th>
                   <th className="py-3 px-4">ग्राहक विवरण (Buyer)</th>
@@ -565,21 +670,29 @@ export default function ReportTab() {
                   <th className="py-3 px-3 w-24 text-right">टैक्सेबल (₹)</th>
                   <th className="py-3 px-3 w-20 text-right">GST (₹)</th>
                   <th className="py-3 px-4 w-28 text-right">कुल बिल (₹)</th>
-                  <th className="py-3 px-4 w-36 text-center">कार्रवाई</th>
+                  <th className="py-3 px-4 w-40 text-center">कार्रवाई</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredBills.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-slate-400">
+                    <td colSpan={10} className="py-8 text-center text-slate-400">
                       कोई जीएसटी बिल रिकॉर्ड नहीं मिला।
                     </td>
                   </tr>
                 ) : (
                   filteredBills.map((bill, index) => (
-                    <tr key={bill.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-3 text-center font-bold text-slate-400">
-                        {index + 1}
+                    <tr key={bill.id} className={`hover:bg-slate-50/80 transition-colors ${selectedBillIds.includes(bill.id) ? 'bg-indigo-50/40' : ''}`}>
+                      <td className="py-3 px-2 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <input 
+                            type="checkbox" 
+                            checked={selectedBillIds.includes(bill.id)} 
+                            onChange={() => toggleSelectBill(bill.id)}
+                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          />
+                          <span className="font-bold text-slate-400 text-[11px]">{index + 1}</span>
+                        </div>
                       </td>
                       <td className="py-3 px-3 font-mono font-bold text-indigo-900">
                         {bill.billNo}
@@ -632,14 +745,23 @@ export default function ReportTab() {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          {/* Print */}
+                          {/* Print Single */}
                           <button
                             type="button"
                             onClick={() => triggerPrint(bill)}
                             className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer"
-                            title="प्रिंट निकालें (Print)"
+                            title="सिंगल प्रिंट (1 प्रति)"
                           >
                             <Printer className="w-4 h-4" />
+                          </button>
+                          {/* Multi-Copy Print */}
+                          <button
+                            type="button"
+                            onClick={() => setMultiPrintModalData({ isOpen: true, bill: bill, isPurchase: false })}
+                            className="p-1.5 text-slate-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg cursor-pointer"
+                            title="मल्टी कॉपी प्रिंट (मूल + द्वितीय प्रति)"
+                          >
+                            <Copy className="w-4 h-4 text-purple-700" />
                           </button>
                           {/* Edit */}
                           <button
@@ -675,7 +797,15 @@ export default function ReportTab() {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-100 text-slate-700 font-bold uppercase border-b border-slate-200">
-                  <th className="py-3 px-3 w-10 text-center">#</th>
+                  <th className="py-3 px-2 w-12 text-center">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedPurchaseIds.length === filteredPurchases.length && filteredPurchases.length > 0} 
+                      onChange={toggleSelectAllPurchases}
+                      title="सभी चुनें / हटाएं"
+                      className="rounded border-amber-300 text-amber-700 focus:ring-amber-500 cursor-pointer"
+                    />
+                  </th>
                   <th className="py-3 px-3 w-32">खरीद वाउचर सं.</th>
                   <th className="py-3 px-3 w-24">दिनांक</th>
                   <th className="py-3 px-4">सप्लायर / डिस्ट्रीब्यूटर</th>
@@ -683,21 +813,29 @@ export default function ReportTab() {
                   <th className="py-3 px-3 w-24 text-right">टैक्सेबल (₹)</th>
                   <th className="py-3 px-3 w-20 text-right">GST (₹)</th>
                   <th className="py-3 px-4 w-28 text-right">कुल लागत (₹)</th>
-                  <th className="py-3 px-4 w-28 text-center">कार्रवाई</th>
+                  <th className="py-3 px-4 w-36 text-center">कार्रवाई</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredPurchases.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-slate-400">
+                    <td colSpan={10} className="py-8 text-center text-slate-400">
                       कोई खरीद रिकॉर्ड नहीं मिला।
                     </td>
                   </tr>
                 ) : (
                   filteredPurchases.map((pur, index) => (
-                    <tr key={pur.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-3 text-center font-bold text-slate-400">
-                        {index + 1}
+                    <tr key={pur.id} className={`hover:bg-slate-50/80 transition-colors ${selectedPurchaseIds.includes(pur.id) ? 'bg-amber-50/50' : ''}`}>
+                      <td className="py-3 px-2 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <input 
+                            type="checkbox" 
+                            checked={selectedPurchaseIds.includes(pur.id)} 
+                            onChange={() => toggleSelectPurchase(pur.id)}
+                            className="rounded border-amber-300 text-amber-700 focus:ring-amber-500 cursor-pointer"
+                          />
+                          <span className="font-bold text-slate-400 text-[11px]">{index + 1}</span>
+                        </div>
                       </td>
                       <td className="py-3 px-3 font-mono font-bold text-amber-900">
                         <div>{pur.purchaseNo}</div>
@@ -767,9 +905,18 @@ export default function ReportTab() {
                             type="button"
                             onClick={() => triggerPrintPurchase(pur)}
                             className="p-1.5 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg cursor-pointer"
-                            title="खरीद वाउचर सीधे प्रिंट करें"
+                            title="खरीद वाउचर सीधे प्रिंट करें (1 प्रति)"
                           >
                             <Printer className="w-4 h-4" />
+                          </button>
+                          {/* Multi-Print Purchase */}
+                          <button
+                            type="button"
+                            onClick={() => setMultiPrintModalData({ isOpen: true, bill: pur, isPurchase: true })}
+                            className="p-1.5 text-slate-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg cursor-pointer"
+                            title="मल्टी कॉपी वाउचर प्रिंट (मूल + स्टोर प्रति)"
+                          >
+                            <Copy className="w-4 h-4 text-purple-700" />
                           </button>
                           {/* Edit (Locked if item already sold) */}
                           {(() => {
@@ -875,6 +1022,15 @@ export default function ReportTab() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setMultiPrintModalData({ isOpen: true, bill: previewBill, isPurchase: false })}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg cursor-pointer shadow-xs"
+                  title="मल्टी कॉपी प्रिंट (Original, Duplicate, Triplicate)"
+                >
+                  <Copy className="w-4 h-4" />
+                  <span>मल्टी प्रिंट</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => setPreviewBill(null)}
                   className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
                 >
@@ -912,6 +1068,15 @@ export default function ReportTab() {
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>वाउचर प्रिंट करें</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMultiPrintModalData({ isOpen: true, bill: previewPurchase, isPurchase: true })}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-lg shadow-sm cursor-pointer"
+                  title="मल्टी कॉपी वाउचर प्रिंट"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>मल्टी वाउचर प्रिंट</span>
                 </button>
                 <button
                   type="button"
@@ -998,6 +1163,34 @@ export default function ReportTab() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 10. Multi-Bill / Multi-Copy Print Modal */}
+      {multiPrintModalData?.isOpen && (
+        <MultiBillPrintModal
+          isOpen={multiPrintModalData.isOpen}
+          onClose={() => setMultiPrintModalData(null)}
+          bill={multiPrintModalData.bill}
+          billsList={multiPrintModalData.billsList}
+          isBulk={multiPrintModalData.isBulk}
+          isPurchase={multiPrintModalData.isPurchase}
+          onConfirm={(options) => {
+            if (options.isBulk) {
+              if (options.isPurchase) {
+                triggerMultiPurchasePrint(options.billsList, options.copiesPerBill, options.selectedCopies);
+              } else {
+                triggerMultiBillPrint(options.billsList, options.copiesPerBill, options.selectedCopies);
+              }
+            } else {
+              if (options.isPurchase) {
+                triggerMultiPurchasePrint([options.bill], 1, options.selectedCopies);
+              } else {
+                triggerMultiCopyBillPrint(options.bill, options.selectedCopies);
+              }
+            }
+            setMultiPrintModalData(null);
+          }}
+        />
       )}
     </div>
   );

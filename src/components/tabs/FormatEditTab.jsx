@@ -22,8 +22,11 @@ import {
   Percent,
   Lock,
   AlertTriangle,
-  X
+  X,
+  Printer,
+  Copy
 } from 'lucide-react';
+import MultiBillPrintModal from '../modals/MultiBillPrintModal';
 import {
   formatPanInput,
   validatePan,
@@ -135,8 +138,12 @@ export default function FormatEditTab() {
     removeGstSlab,
     addItemGstRule,
     removeItemGstRule,
-    resetItemGstRules
+    resetItemGstRules,
+    triggerPrint,
+    triggerMultiCopyBillPrint
   } = useBilling();
+
+  const [isMultiPrintModalOpen, setIsMultiPrintModalOpen] = useState(false);
 
   // Determine if user has already logged in with or established a GST number
   const hadExistingGstin = Boolean(
@@ -1179,10 +1186,30 @@ export default function FormatEditTab() {
                 लाइव बिल फॉर्मेट प्रीव्यू (Live Bill Preview)
               </h3>
             </div>
-            <span className="text-xs bg-indigo-100 text-indigo-800 font-bold px-3 py-1 rounded-full flex items-center gap-1.5 w-fit">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-              <span>सक्रिय: {GST_THEMES.find(t => t.id === (formData.selectedTheme || 'classic'))?.name || 'Theme 1: Classic Tax Invoice'}</span>
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs bg-indigo-100 text-indigo-800 font-bold px-3 py-1 rounded-full flex items-center gap-1.5 w-fit">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                <span>सक्रिय: {GST_THEMES.find(t => t.id === (formData.selectedTheme || 'classic'))?.name || 'Theme 1: Classic Tax Invoice'}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => triggerPrint(previewBillWithTheme)}
+                className="flex items-center gap-1 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-xs cursor-pointer"
+                title="वर्तमान थीम में बिल प्रिंट टेस्ट करें"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>प्रिंट टेस्ट</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsMultiPrintModalOpen(true)}
+                className="flex items-center gap-1 px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-lg shadow-xs cursor-pointer"
+                title="मल्टी कॉपी प्रिंट टेस्ट (मूल + द्वितीयक + तृतीयक प्रति)"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>मल्टी प्रिंट टेस्ट</span>
+              </button>
+            </div>
           </div>
 
           <p className="text-xs text-slate-500 mb-3">
@@ -1195,6 +1222,20 @@ export default function FormatEditTab() {
           </div>
         </div>
       </div>
+
+      {/* Multi-Copy Bill Print Modal */}
+      {isMultiPrintModalOpen && (
+        <MultiBillPrintModal
+          isOpen={isMultiPrintModalOpen}
+          onClose={() => setIsMultiPrintModalOpen(false)}
+          bill={previewBillWithTheme}
+          isBulk={false}
+          onConfirm={(options) => {
+            triggerMultiCopyBillPrint(options.bill, options.selectedCopies);
+            setIsMultiPrintModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

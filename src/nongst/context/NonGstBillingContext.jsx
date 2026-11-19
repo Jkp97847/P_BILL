@@ -523,6 +523,63 @@ export function BillingProvider({ children }) {
     }, 150);
   };
 
+  // MULTI-BILL PRINT HELPERS (Multi-Copy & Bulk Invoices Print)
+  const COPY_TITLES_NONGST = {
+    1: 'मूल प्रति / ORIGINAL BILL COPY',
+    2: 'द्वितीय प्रति / DUPLICATE COPY',
+    3: 'तृतीय प्रति / TRIPLICATE COPY',
+    4: 'कार्यालय प्रति / EXTRA / OFFICE COPY'
+  };
+
+  const triggerMultiCopyBillPrint = (billData, selectedCopies = [1, 2]) => {
+    if (!billData) return;
+    const copiesList = Array.isArray(selectedCopies) && selectedCopies.length > 0 ? selectedCopies : [1, 2];
+    const printableList = copiesList.map(copyNum => ({
+      ...billData,
+      _copyTitle: COPY_TITLES_NONGST[copyNum] || `प्रति #${copyNum} / COPY #${copyNum}`,
+      _copyIndex: copyNum
+    }));
+
+    setActivePrintBill(printableList[0] || null);
+    setPrintDocument({
+      type: 'multi_bill',
+      bills: printableList
+    });
+
+    setTimeout(() => {
+      window.print();
+    }, 200);
+  };
+
+  const triggerMultiBillPrint = (billsArray, copiesPerBill = 1, selectedCopies = null) => {
+    if (!billsArray || billsArray.length === 0) return;
+
+    const copiesList = Array.isArray(selectedCopies) && selectedCopies.length > 0
+      ? selectedCopies
+      : Array.from({ length: Math.max(1, copiesPerBill) }, (_, i) => i + 1);
+
+    const printableList = [];
+    billsArray.forEach(b => {
+      copiesList.forEach(copyNum => {
+        printableList.push({
+          ...b,
+          _copyTitle: COPY_TITLES_NONGST[copyNum] || `प्रति #${copyNum} / COPY #${copyNum}`,
+          _copyIndex: copyNum
+        });
+      });
+    });
+
+    setActivePrintBill(printableList[0] || null);
+    setPrintDocument({
+      type: 'multi_bill',
+      bills: printableList
+    });
+
+    setTimeout(() => {
+      window.print();
+    }, 200);
+  };
+
   // --------------------------------------------------------------------------
   // 1. USER PERSONAL DATA BACKUP (Export & Import for Current Logged-in User)
   // --------------------------------------------------------------------------
@@ -692,6 +749,8 @@ export function BillingProvider({ children }) {
         generateNextBillNo,
         triggerPrint,
         triggerPrintReport,
+        triggerMultiBillPrint,
+        triggerMultiCopyBillPrint,
         exportUserData,
         importUserData,
         exportData: exportUserData,

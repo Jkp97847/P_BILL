@@ -23,7 +23,7 @@ export default function ClassicGstTheme({ bill, settings }) {
       <div className="relative border-b-2 border-slate-900 pb-2 mb-2 flex items-center justify-between">
         <div className="text-left w-1/3">
           <span className="font-bold text-[10px] bg-slate-900 text-white px-2 py-0.5 rounded tracking-wide uppercase">
-            मूल प्रति / ORIGINAL COPY
+            {bill._copyTitle || 'मूल प्रति / ORIGINAL COPY'}
           </span>
         </div>
 
