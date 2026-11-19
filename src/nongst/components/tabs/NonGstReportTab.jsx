@@ -51,7 +51,8 @@ export default function ReportTab() {
   const { showToast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDateFilter, setSelectedDateFilter] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   
   // Financial Year Filter State ('ALL' | e.g. '2026' for FY 2026-27: 1 Apr 2026 - 31 Mar 2027)
   const currentFY = useMemo(() => getCurrentFinancialYear(), []);
@@ -84,7 +85,7 @@ export default function ReportTab() {
     };
   }, [bills]);
 
-  // Filtered Bills with Search, Single Date, and Financial Year Filter
+  // Filtered Bills with Search, From/To Date Range, and Financial Year Filter
   const filteredBills = useMemo(() => {
     return bills.filter(bill => {
       const q = searchTerm.toLowerCase().trim();
@@ -95,12 +96,15 @@ export default function ReportTab() {
         (bill.customerMobile && bill.customerMobile.includes(q)) ||
         (bill.items && bill.items.some(it => it.name && it.name.toLowerCase().includes(q)));
 
-      const matchDate = !selectedDateFilter || bill.date === selectedDateFilter;
+      let matchDate = true;
+      if (fromDate && bill.date < fromDate) matchDate = false;
+      if (toDate && bill.date > toDate) matchDate = false;
+
       const matchFY = !selectedFY || selectedFY === 'ALL' || isDateInFinancialYear(bill.date, selectedFY);
 
       return matchSearch && matchDate && matchFY;
     });
-  }, [bills, searchTerm, selectedDateFilter, selectedFY]);
+  }, [bills, searchTerm, fromDate, toDate, selectedFY]);
 
   // Active Filtered Statistics (Reflects Financial Year or Single Date Selection)
   const activeStats = useMemo(() => {
@@ -114,8 +118,14 @@ export default function ReportTab() {
 
   // Helper to get active period label for print
   const getActiveFilterLabel = () => {
-    if (selectedDateFilter) {
-      return `दिनांक: ${selectedDateFilter}`;
+    if (fromDate && toDate) {
+      return `दिनांक: ${fromDate} से ${toDate}`;
+    }
+    if (fromDate) {
+      return `दिनांक: ${fromDate} से आगे`;
+    }
+    if (toDate) {
+      return `दिनांक: ${toDate} तक`;
     }
     if (selectedFY && selectedFY !== 'ALL') {
       const fyObj = availableFYs.find(f => f.key === selectedFY);
@@ -302,23 +312,35 @@ export default function ReportTab() {
             </select>
           </div>
 
-          {/* Date Filter */}
+          {/* From Date and To Date Range Pickers */}
           <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 px-2.5 py-1.5 rounded-lg">
-            <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">तारीख:</span>
+            <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">दिनांक से:</span>
             <input
               type="date"
-              value={selectedDateFilter}
-              onChange={(e) => setSelectedDateFilter(e.target.value)}
-              className="text-xs bg-transparent text-slate-800 outline-none cursor-pointer"
-              title="विशिष्ट दिन का बिल देखें"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="text-xs bg-transparent text-slate-800 outline-none cursor-pointer font-medium"
+              title="प्रारंभिक दिनांक (From Date) चुनें"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 px-2.5 py-1.5 rounded-lg">
+            <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">तक:</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="text-xs bg-transparent text-slate-800 outline-none cursor-pointer font-medium"
+              title="अंतिम दिनांक (To Date) चुनें"
             />
           </div>
 
           {/* Reset button */}
-          {(selectedDateFilter || selectedFY !== 'ALL') && (
+          {(fromDate || toDate || selectedFY !== 'ALL') && (
             <button
               onClick={() => {
-                setSelectedDateFilter('');
+                setFromDate('');
+                setToDate('');
                 setSelectedFY('ALL');
               }}
               className="text-xs text-rose-600 hover:bg-rose-50 font-bold px-2 py-1 rounded border border-rose-200 transition-colors cursor-pointer"

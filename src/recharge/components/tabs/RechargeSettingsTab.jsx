@@ -100,7 +100,7 @@ export default function RechargeSettingsTab() {
           message: 'अमान्य JSON फ़ाइल: ' + err.message
         });
       }
-      setTimeout(() => setBackupNotification(null), 4000);
+      setTimeout(() => setBackupNotification(null), 6000);
     };
     reader.readAsText(file);
     e.target.value = '';

@@ -31,6 +31,8 @@ export default function RechargeReportTab() {
   const [searchTerm, setSearchTerm] = useState('');
   const [serviceFilter, setServiceFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all'); // 'all' | 'today' | 'yesterday' | 'month' | 'fy'
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const currentFY = getCurrentFinancialYear();
 
   // Filter transactions
@@ -43,6 +45,9 @@ export default function RechargeReportTab() {
 
       // 2. Date Filter
       if (t.billDate) {
+        if (fromDate && t.billDate < fromDate) return false;
+        if (toDate && t.billDate > toDate) return false;
+
         const todayStr = new Date().toISOString().split('T')[0];
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
@@ -72,7 +77,7 @@ export default function RechargeReportTab() {
 
       return true;
     });
-  }, [transactions, serviceFilter, dateFilter, searchTerm, currentFY]);
+  }, [transactions, serviceFilter, dateFilter, fromDate, toDate, searchTerm, currentFY]);
 
   // Summary Metrics
   const metrics = useMemo(() => {
@@ -277,7 +282,7 @@ export default function RechargeReportTab() {
             <option value="insurance">🛡️ बीमा प्रीमियम (Insurance)</option>
           </select>
 
-          {/* Date Filter */}
+          {/* Quick Date Presets */}
           <select
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
@@ -289,6 +294,46 @@ export default function RechargeReportTab() {
             <option value="month">इस महीने (This Month)</option>
             <option value="fy">वित्तीय वर्ष ({currentFY.hindiLabel || currentFY.label})</option>
           </select>
+
+          {/* From Date and To Date Range Pickers */}
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 px-2.5 py-1.5 rounded-xl">
+            <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">दिनांक से:</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="text-xs bg-transparent text-slate-800 outline-none cursor-pointer font-medium"
+              title="प्रारंभिक दिनांक (From Date) चुनें"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 px-2.5 py-1.5 rounded-xl">
+            <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">तक:</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="text-xs bg-transparent text-slate-800 outline-none cursor-pointer font-medium"
+              title="अंतिम दिनांक (To Date) चुनें"
+            />
+          </div>
+
+          {/* Reset Filters button */}
+          {(fromDate || toDate || dateFilter !== 'all' || serviceFilter !== 'all') && (
+            <button
+              type="button"
+              onClick={() => {
+                setFromDate('');
+                setToDate('');
+                setDateFilter('all');
+                setServiceFilter('all');
+              }}
+              className="text-xs text-rose-600 hover:bg-rose-50 font-bold px-2.5 py-1.5 rounded-xl border border-rose-200 transition-colors cursor-pointer"
+              title="सभी फ़िल्टर हटाएं"
+            >
+              ✕ हटाएं
+            </button>
+          )}
 
           {/* Export CSV */}
           <button

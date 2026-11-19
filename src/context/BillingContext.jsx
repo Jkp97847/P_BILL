@@ -1311,6 +1311,11 @@ export function BillingProvider({ children }) {
   // --------------------------------------------------------------------------
   const exportData = () => {
     const backup = {
+      backupModule: 'gst_billing',
+      backupType: 'gst_billing_backup',
+      moduleName: 'जीएसटी बिलिंग (GST Billing Tab 1)',
+      version: '2.0',
+      shopName: settings?.businessName || '',
       settings,
       inventory,
       purchases,
@@ -1321,18 +1326,65 @@ export function BillingProvider({ children }) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `mobile_billing_backup_${new Date().toISOString().split('T')[0]}.json`;
+    const safeShop = (settings?.businessName || 'gst').replace(/[^a-zA-Z0-9_\u0900-\u097F]/g, '_');
+    link.download = `gst_billing_backup_${safeShop}_${new Date().toISOString().split('T')[0]}.json`;
     link.click();
     URL.revokeObjectURL(url);
+    return true;
   };
 
   const importData = (jsonData) => {
     try {
-      if (jsonData.settings) setSettings(jsonData.settings);
-      if (jsonData.inventory && Array.isArray(jsonData.inventory)) setInventory(jsonData.inventory);
-      if (jsonData.purchases && Array.isArray(jsonData.purchases)) setPurchases(jsonData.purchases);
-      if (jsonData.gstBills && Array.isArray(jsonData.gstBills)) setGstBills(jsonData.gstBills);
-      return { success: true };
+      const parsed = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
+      if (!parsed || typeof parsed !== 'object') {
+        throw new Error('अमान्य JSON फ़ाइल स्वरूप।');
+      }
+
+      // 1. Cross-check: Block Non-GST backups
+      if (
+        parsed.backupModule === 'nongst_billing' ||
+        parsed.backupType === 'nongst_billing_backup' ||
+        parsed.backupType === 'user_personal_backup' ||
+        (parsed.bills && !parsed.gstBills)
+      ) {
+        throw new Error('⚠️ यह बैकअप फ़ाइल "नॉन-जीएसटी (Non-GST / Tab 2)" की है! इसे जीएसटी बिलिंग टैब में लोड नहीं किया जा सकता। कृपया इसे नॉन-जीएसटी टैब में ही रीस्टोर करें।');
+      }
+
+      // 2. Cross-check: Block Recharge & Utility backups
+      if (
+        parsed.backupModule === 'recharge_utility' ||
+        parsed.backupType === 'recharge_utility_backup' ||
+        parsed.transactions
+      ) {
+        throw new Error('⚠️ यह बैकअप फ़ाइल "रिचार्ज एवं यूटिलिटी (Tab 3)" की है! इसे जीएसटी बिलिंग टैब में लोड नहीं किया जा सकता। कृपया इसे रिचार्ज टैब में ही रीस्टोर करें।');
+      }
+
+      // 3. Super Admin master backup check
+      if (parsed.backupType === 'master_database_backup') {
+        throw new Error('⚠️ यह सुपर एडमिन का मास्टर डेटाबेस बैकअप है। इसे केवल सुपर एडमिन पोर्टल से रीस्टोर किया जा सकता है।');
+      }
+
+      // 4. Validate GST backup identity
+      const isGstBackup =
+        parsed.backupModule === 'gst_billing' ||
+        parsed.backupType === 'gst_billing_backup' ||
+        Boolean(parsed.gstBills || parsed.purchases || parsed.inventory);
+
+      if (!isGstBackup) {
+        throw new Error('⚠️ अमान्य बैकअप फ़ाइल! यह जीएसटी बिलिंग (GST Billing) की मान्य बैकअप फ़ाइल नहीं है।');
+      }
+
+      if (parsed.settings) setSettings(parsed.settings);
+      if (parsed.inventory && Array.isArray(parsed.inventory)) setInventory(parsed.inventory);
+      if (parsed.purchases && Array.isArray(parsed.purchases)) setPurchases(parsed.purchases);
+      if (parsed.gstBills && Array.isArray(parsed.gstBills)) setGstBills(parsed.gstBills);
+
+      const billCount = Array.isArray(parsed.gstBills) ? parsed.gstBills.length : 0;
+      const purCount = Array.isArray(parsed.purchases) ? parsed.purchases.length : 0;
+      return { 
+        success: true,
+        message: `जीएसटी बैकअप सफलतापूर्वक रीस्टोर हो गया! (${billCount} सेल बिल, ${purCount} खरीद बिल लोड हुए)`
+      };
     } catch (err) {
       return { success: false, error: err.message };
     }

@@ -62,7 +62,8 @@ export default function ReportTab() {
   // Active Report View: 'sales' | 'purchases'
   const [reportType, setReportType] = useState('sales');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDateFilter, setSelectedDateFilter] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   
   // Financial Year Filter State ('ALL' | e.g. '2026' for FY 2026-27: 1 Apr 2026 - 31 Mar 2027)
   const currentFY = useMemo(() => getCurrentFinancialYear(), []);
@@ -130,12 +131,15 @@ export default function ReportTab() {
           (it.serialNo && it.serialNo.toLowerCase().includes(q))
         ));
 
-      const matchDate = !selectedDateFilter || bill.date === selectedDateFilter;
+      let matchDate = true;
+      if (fromDate && bill.date < fromDate) matchDate = false;
+      if (toDate && bill.date > toDate) matchDate = false;
+
       const matchFY = !selectedFY || selectedFY === 'ALL' || isDateInFinancialYear(bill.date, selectedFY);
 
       return matchSearch && matchDate && matchFY;
     });
-  }, [gstBills, searchTerm, selectedDateFilter, selectedFY]);
+  }, [gstBills, searchTerm, fromDate, toDate, selectedFY]);
 
   // Filtered Purchases
   const filteredPurchases = useMemo(() => {
@@ -153,12 +157,15 @@ export default function ReportTab() {
           (it.serialNo && it.serialNo.toLowerCase().includes(q))
         ));
 
-      const matchDate = !selectedDateFilter || pur.date === selectedDateFilter;
+      let matchDate = true;
+      if (fromDate && pur.date < fromDate) matchDate = false;
+      if (toDate && pur.date > toDate) matchDate = false;
+
       const matchFY = !selectedFY || selectedFY === 'ALL' || isDateInFinancialYear(pur.date, selectedFY);
 
       return matchSearch && matchDate && matchFY;
     });
-  }, [purchases, searchTerm, selectedDateFilter, selectedFY]);
+  }, [purchases, searchTerm, fromDate, toDate, selectedFY]);
 
   // Active Filtered Stats (Reflects Financial Year or Single Date Selection)
   const activeStats = useMemo(() => {
@@ -177,8 +184,14 @@ export default function ReportTab() {
 
   // Helper to get active period label for print
   const getActiveFilterLabel = () => {
-    if (selectedDateFilter) {
-      return `दिनांक: ${selectedDateFilter}`;
+    if (fromDate && toDate) {
+      return `दिनांक: ${fromDate} से ${toDate}`;
+    }
+    if (fromDate) {
+      return `दिनांक: ${fromDate} से आगे`;
+    }
+    if (toDate) {
+      return `दिनांक: ${toDate} तक`;
     }
     if (selectedFY && selectedFY !== 'ALL') {
       const fyObj = availableFYs.find(f => f.key === selectedFY);
@@ -265,21 +278,21 @@ export default function ReportTab() {
         if (res.success) {
           setNotification({
             type: 'success',
-            message: 'बैकअप सफलतापूर्वक लोड हो गया!'
+            message: res.message || 'बैकअप सफलतापूर्वक लोड हो गया!'
           });
         } else {
           setNotification({
             type: 'error',
-            message: 'डेटा लोड करने में त्रुटि: ' + res.error
+            message: res.error || 'डेटा लोड करने में त्रुटि!'
           });
         }
-      } catch {
+      } catch (err) {
         setNotification({
           type: 'error',
-          message: 'अमान्य JSON फ़ाइल प्रारूप!'
+          message: 'अमान्य JSON फ़ाइल: ' + (err.message || 'फ़ाइल पढ़ी नहीं जा सकी!')
         });
       }
-      setTimeout(() => setNotification(null), 4000);
+      setTimeout(() => setNotification(null), 5000);
     };
     reader.readAsText(file);
     e.target.value = '';
@@ -463,24 +476,36 @@ export default function ReportTab() {
             </select>
           </div>
 
-          {/* Single Date Picker */}
+          {/* From Date and To Date Range Pickers */}
           <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 px-2.5 py-1 rounded-lg">
-            <span className="text-xs font-bold text-slate-600 shrink-0">तारीख:</span>
+            <span className="text-xs font-bold text-slate-600 shrink-0">दिनांक से:</span>
             <input
               type="date"
-              value={selectedDateFilter}
-              onChange={(e) => setSelectedDateFilter(e.target.value)}
-              className="text-xs text-slate-800 outline-none bg-transparent cursor-pointer"
-              title="विशिष्ट दिन का रिकॉर्ड देखें"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="text-xs text-slate-800 outline-none bg-transparent cursor-pointer font-medium"
+              title="प्रारंभिक दिनांक (From Date) चुनें"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 px-2.5 py-1 rounded-lg">
+            <span className="text-xs font-bold text-slate-600 shrink-0">तक:</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="text-xs text-slate-800 outline-none bg-transparent cursor-pointer font-medium"
+              title="अंतिम दिनांक (To Date) चुनें"
             />
           </div>
 
           {/* Reset Filters */}
-          {(selectedDateFilter || selectedFY !== 'ALL') && (
+          {(fromDate || toDate || selectedFY !== 'ALL') && (
             <button
               type="button"
               onClick={() => {
-                setSelectedDateFilter('');
+                setFromDate('');
+                setToDate('');
                 setSelectedFY('ALL');
               }}
               className="text-xs text-rose-600 font-bold px-2 py-1 hover:bg-rose-50 rounded border border-rose-200 transition-colors cursor-pointer"

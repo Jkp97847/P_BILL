@@ -256,8 +256,10 @@ export function RechargeProvider({ children }) {
   // Backup Export (.json)
   const exportUserData = () => {
     const backupPayload = {
+      backupModule: 'recharge_utility',
       backupType: 'recharge_utility_backup',
-      version: '1.0',
+      moduleName: 'रिचार्ज एवं यूटिलिटी बिल (Recharge & Utility Tab 3)',
+      version: '2.0',
       userId: activeUserId,
       userShop: settings.shopName || 'Recharge_Center',
       ownerName: settings.ownerName || '',
@@ -289,12 +291,42 @@ export function RechargeProvider({ children }) {
         throw new Error('अमान्य JSON फ़ाइल स्वरूप।');
       }
 
+      // 1. Cross-check: Block GST Billing backups
+      if (
+        parsed.backupModule === 'gst_billing' ||
+        parsed.backupType === 'gst_billing_backup' ||
+        Boolean(parsed.gstBills || parsed.purchases)
+      ) {
+        throw new Error('⚠️ यह बैकअप फ़ाइल "जीएसटी बिलिंग (GST Billing / Tab 1)" की है! इसे रिचार्ज टैब में लोड नहीं किया जा सकता। कृपया इसे जीएसटी टैब में ही रीस्टोर करें।');
+      }
+
+      // 2. Cross-check: Block Non-GST backups
+      if (
+        parsed.backupModule === 'nongst_billing' ||
+        parsed.backupType === 'nongst_billing_backup' ||
+        parsed.backupType === 'user_personal_backup' ||
+        (Boolean(parsed.bills) && !parsed.transactions)
+      ) {
+        throw new Error('⚠️ यह बैकअप फ़ाइल "नॉन-जीएसटी (Non-GST / Tab 2)" की है! इसे रिचार्ज टैब में लोड नहीं किया जा सकता। कृपया इसे नॉन-जीएसटी टैब में ही रीस्टोर करें।');
+      }
+
+      // 3. Super Admin master backup check
       if (parsed.backupType === 'master_database_backup') {
-        throw new Error('यह मास्टर डेटाबेस बैकअप है। इसे केवल सुपर एडमिन पोर्टल से रीस्टोर किया जा सकता है।');
+        throw new Error('⚠️ यह सुपर एडमिन का मास्टर डेटाबेस बैकअप है। इसे केवल सुपर एडमिन पोर्टल से रीस्टोर किया जा सकता है।');
+      }
+
+      // 4. Validate Recharge backup identity
+      const isRechargeBackup =
+        parsed.backupModule === 'recharge_utility' ||
+        parsed.backupType === 'recharge_utility_backup' ||
+        Boolean(parsed.transactions);
+
+      if (!isRechargeBackup) {
+        throw new Error('⚠️ अमान्य बैकअप फ़ाइल! इस फ़ाइल में रिचार्ज अथवा यूटिलिटी बिल का कोई डेटा नहीं मिला।');
       }
 
       const newSettings = parsed.settings;
-      const newTransactions = parsed.transactions || parsed.bills;
+      const newTransactions = parsed.transactions;
 
       if (!newSettings && !Array.isArray(newTransactions)) {
         throw new Error('इस बैकअप फ़ाइल में रिचार्ज अथवा सेटिंग्स का डेटा नहीं मिला।');
