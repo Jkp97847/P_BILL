@@ -13,7 +13,12 @@ import {
   DollarSign, 
   Layers,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Edit3,
+  Lock
 } from 'lucide-react';
 import { isDateInFinancialYear, getCurrentFinancialYear } from '../../../utils/financialYear';
 
@@ -21,10 +26,10 @@ export default function RechargeReportTab() {
   const { 
     transactions, 
     deleteTransaction, 
-    clearAllTransactions, 
     printSlip,
     exportUserData,
-    importUserData
+    importUserData,
+    startEditingTransaction
   } = useRecharge();
 
   const [notification, setNotification] = useState(null);
@@ -33,6 +38,8 @@ export default function RechargeReportTab() {
   const [dateFilter, setDateFilter] = useState('all'); // 'all' | 'today' | 'yesterday' | 'month' | 'fy'
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [sortField, setSortField] = useState('date');
+  const [sortDirection, setSortDirection] = useState('desc');
   const currentFY = getCurrentFinancialYear();
 
   // Filter transactions
@@ -79,6 +86,71 @@ export default function RechargeReportTab() {
     });
   }, [transactions, serviceFilter, dateFilter, fromDate, toDate, searchTerm, currentFY]);
 
+  // Column Title Sorting (Ascending / Descending)
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const renderSortIcon = (field) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-60 inline ml-1" />;
+    }
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="w-3.5 h-3.5 text-blue-600 inline ml-1 font-black" />
+      : <ArrowDown className="w-3.5 h-3.5 text-blue-600 inline ml-1 font-black" />;
+  };
+
+  const sortedList = useMemo(() => {
+    const list = [...filteredList];
+    list.sort((a, b) => {
+      let aVal = '';
+      let bVal = '';
+      switch (sortField) {
+        case 'date':
+          aVal = a.billDate || '';
+          bVal = b.billDate || '';
+          break;
+        case 'id':
+          aVal = a.id || '';
+          bVal = b.id || '';
+          break;
+        case 'service':
+          aVal = `${a.serviceType || ''} ${a.operatorName || ''}`.toLowerCase();
+          bVal = `${b.serviceType || ''} ${b.operatorName || ''}`.toLowerCase();
+          break;
+        case 'customer':
+          aVal = (a.customerName || a.consumerNo || '').toLowerCase();
+          bVal = (b.customerName || b.consumerNo || '').toLowerCase();
+          break;
+        case 'billAmount':
+          aVal = parseFloat(a.billAmount) || 0;
+          bVal = parseFloat(b.billAmount) || 0;
+          break;
+        case 'conveFee':
+          aVal = parseFloat(a.conveFee) || 0;
+          bVal = parseFloat(b.conveFee) || 0;
+          break;
+        case 'totalAmount':
+          aVal = parseFloat(a.totalAmount) || ((parseFloat(a.billAmount) || 0) + (parseFloat(a.conveFee) || 0));
+          bVal = parseFloat(b.totalAmount) || ((parseFloat(b.billAmount) || 0) + (parseFloat(b.conveFee) || 0));
+          break;
+        default:
+          aVal = a.billDate || '';
+          bVal = b.billDate || '';
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return list;
+  }, [filteredList, sortField, sortDirection]);
+
   // Summary Metrics
   const metrics = useMemo(() => {
     let totalBills = filteredList.length;
@@ -97,13 +169,13 @@ export default function RechargeReportTab() {
 
   // Export CSV
   const exportToCSV = () => {
-    if (filteredList.length === 0) {
+    if (sortedList.length === 0) {
       alert('डाउनलोड हेतु कोई रिकॉर्ड उपलब्ध नहीं है!');
       return;
     }
 
     const headers = ['Sl No', 'Date', 'Receipt ID', 'Service', 'Operator', 'Consumer / Mobile / Policy', 'Customer Name', 'Bill Amount', 'Convenience Fee', 'Total Paid', 'Sub Division / Notes'];
-    const rows = filteredList.map((t, idx) => [
+    const rows = sortedList.map((t, idx) => [
       idx + 1,
       t.billDate || '',
       t.id || '',
@@ -125,13 +197,6 @@ export default function RechargeReportTab() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
-
-  const handleClearAll = () => {
-    if (transactions.length === 0) return;
-    if (window.confirm('⚠️ क्या आप वाकई सभी रिचार्ज व बिल रिकॉर्ड हटाना चाहते हैं?')) {
-      clearAllTransactions();
-    }
   };
 
   // Export JSON Backup
@@ -371,19 +436,6 @@ export default function RechargeReportTab() {
               className="hidden"
             />
           </label>
-
-          {/* Clear All */}
-          {transactions.length > 0 && (
-            <button
-              type="button"
-              onClick={handleClearAll}
-              className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
-              title="सभी रिकॉर्ड साफ करें"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>हटाएं</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -392,19 +444,73 @@ export default function RechargeReportTab() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-black uppercase tracking-wider">
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-black uppercase tracking-wider select-none">
                 <th className="py-3 px-4 w-12 text-center">क्र.</th>
-                <th className="py-3 px-4">दिनांक व ID</th>
-                <th className="py-3 px-4">सेवा / ऑपरेटर</th>
-                <th className="py-3 px-4">उपभोक्ता विवरण</th>
-                <th className="py-3 px-4 text-right">मूल बिल</th>
-                <th className="py-3 px-4 text-right">सुविधा शुल्क</th>
-                <th className="py-3 px-4 text-right">कुल भुगतान</th>
+                <th 
+                  onClick={() => handleSort('date')}
+                  className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition-colors"
+                  title="दिनांक व ID अनुसार क्रमबद्ध करें"
+                >
+                  <span className="flex items-center gap-1">
+                    <span>दिनांक व ID</span>
+                    {renderSortIcon('date')}
+                  </span>
+                </th>
+                <th 
+                  onClick={() => handleSort('service')}
+                  className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition-colors"
+                  title="सेवा / ऑपरेटर अनुसार क्रमबद्ध करें"
+                >
+                  <span className="flex items-center gap-1">
+                    <span>सेवा / ऑपरेटर</span>
+                    {renderSortIcon('service')}
+                  </span>
+                </th>
+                <th 
+                  onClick={() => handleSort('customer')}
+                  className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition-colors"
+                  title="उपभोक्ता विवरण अनुसार क्रमबद्ध करें"
+                >
+                  <span className="flex items-center gap-1">
+                    <span>उपभोक्ता विवरण</span>
+                    {renderSortIcon('customer')}
+                  </span>
+                </th>
+                <th 
+                  onClick={() => handleSort('billAmount')}
+                  className="py-3 px-4 text-right cursor-pointer hover:bg-slate-100 transition-colors"
+                  title="मूल बिल अनुसार क्रमबद्ध करें"
+                >
+                  <span className="flex items-center justify-end gap-1">
+                    <span>मूल बिल</span>
+                    {renderSortIcon('billAmount')}
+                  </span>
+                </th>
+                <th 
+                  onClick={() => handleSort('conveFee')}
+                  className="py-3 px-4 text-right cursor-pointer hover:bg-slate-100 transition-colors"
+                  title="सुविधा शुल्क अनुसार क्रमबद्ध करें"
+                >
+                  <span className="flex items-center justify-end gap-1">
+                    <span>सुविधा शुल्क</span>
+                    {renderSortIcon('conveFee')}
+                  </span>
+                </th>
+                <th 
+                  onClick={() => handleSort('totalAmount')}
+                  className="py-3 px-4 text-right cursor-pointer hover:bg-slate-100 transition-colors"
+                  title="कुल भुगतान अनुसार क्रमबद्ध करें"
+                >
+                  <span className="flex items-center justify-end gap-1">
+                    <span>कुल भुगतान</span>
+                    {renderSortIcon('totalAmount')}
+                  </span>
+                </th>
                 <th className="py-3 px-4 text-center">एक्शन</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredList.length === 0 ? (
+              {sortedList.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="py-12 text-center text-slate-400">
                     <FileText className="w-8 h-8 mx-auto mb-2 opacity-40" />
@@ -413,10 +519,11 @@ export default function RechargeReportTab() {
                   </td>
                 </tr>
               ) : (
-                filteredList.map((t, index) => {
+                sortedList.map((t, index) => {
                   const billAmt = parseFloat(t.billAmount) || 0;
                   const feeAmt = parseFloat(t.conveFee) || 0;
                   const totAmt = parseFloat(t.totalAmount) || (billAmt + feeAmt);
+                  const isLatest = transactions[0]?.id && t.id === transactions[0]?.id;
 
                   return (
                     <tr key={t.id || index} className="hover:bg-slate-50/70 transition-colors">
@@ -425,7 +532,14 @@ export default function RechargeReportTab() {
                       </td>
 
                       <td className="py-3 px-4">
-                        <div className="font-bold text-slate-900">{t.billDate}</div>
+                        <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                          <span>{t.billDate}</span>
+                          {isLatest && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-black bg-blue-100 text-blue-800 rounded border border-blue-300">
+                              अंतिम रसीद
+                            </span>
+                          )}
+                        </div>
                         <div className="font-mono text-[10px] text-slate-400 truncate max-w-[120px]">{t.id}</div>
                       </td>
 
@@ -474,18 +588,53 @@ export default function RechargeReportTab() {
                             <Printer className="w-3.5 h-3.5" />
                           </button>
 
+                          {/* Edit Button - Allowed anytime anywhere */}
                           <button
                             type="button"
-                            onClick={() => {
-                              if (window.confirm(`रसीद #${t.id} हटाना चाहते हैं?`)) {
-                                deleteTransaction(t.id);
-                              }
-                            }}
-                            className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors cursor-pointer"
-                            title="हटाएं"
+                            onClick={() => startEditingTransaction(t)}
+                            className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg transition-colors cursor-pointer"
+                            title="रसीद संपादित करें (Edit Receipt)"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Edit3 className="w-3.5 h-3.5" />
                           </button>
+
+                          {/* Delete Button - Stack Order (Latest Only) */}
+                          {isLatest ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`⚠️ क्या आप वाकई अंतिम रसीद #${t.id} को हटाना चाहते हैं?`)) {
+                                  try {
+                                    deleteTransaction(t.id);
+                                    setNotification({
+                                      type: 'success',
+                                      message: `रसीद #${t.id} सफलतापूर्वक हटाई गई!`
+                                    });
+                                    setTimeout(() => setNotification(null), 3000);
+                                  } catch (err) {
+                                    setNotification({
+                                      type: 'error',
+                                      message: err.message
+                                    });
+                                    setTimeout(() => setNotification(null), 5000);
+                                  }
+                                }
+                              }}
+                              className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors cursor-pointer"
+                              title="अंतिम रसीद हटाएं (Delete Latest Receipt)"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              className="p-1.5 bg-slate-100 text-slate-300 rounded-lg cursor-not-allowed border border-slate-200"
+                              title="⚠️ केवल सबसे अंतिम रसीद ही हटाई जा सकती है! स्टैक ऑर्डर के कारण बीच की रसीद हटाना प्रतिबंधित है।"
+                            >
+                              <Lock className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -16,7 +16,11 @@ import {
   TrendingUp,
   X,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  Lock
 } from 'lucide-react';
 
 import { 
@@ -57,6 +61,28 @@ export default function ReportTab() {
   // Financial Year Filter State ('ALL' | e.g. '2026' for FY 2026-27: 1 Apr 2026 - 31 Mar 2027)
   const currentFY = useMemo(() => getCurrentFinancialYear(), []);
   const [selectedFY, setSelectedFY] = useState('ALL');
+
+  // Sorting state for column headers (Title Tab)
+  const [sortField, setSortField] = useState('date');
+  const [sortDirection, setSortDirection] = useState('desc'); // 'asc' | 'desc'
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const renderSortIcon = (field) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60 inline ml-1 shrink-0" />;
+    }
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="w-3.5 h-3.5 text-indigo-600 inline ml-1 shrink-0 font-bold" />
+      : <ArrowDown className="w-3.5 h-3.5 text-indigo-600 inline ml-1 shrink-0 font-bold" />;
+  };
 
   const [printModalBill, setPrintModalBill] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
@@ -105,6 +131,28 @@ export default function ReportTab() {
       return matchSearch && matchDate && matchFY;
     });
   }, [bills, searchTerm, fromDate, toDate, selectedFY]);
+
+  // Arranged / Sorted Bills (Ascending or Descending by Title Tab)
+  const sortedBills = useMemo(() => {
+    return [...filteredBills].sort((a, b) => {
+      let diff = 0;
+      if (sortField === 'billNo') {
+        diff = (a.billNo || '').localeCompare(b.billNo || '', undefined, { numeric: true });
+      } else if (sortField === 'customer') {
+        diff = (a.customerName || '').localeCompare(b.customerName || '');
+      } else if (sortField === 'mobile') {
+        diff = (a.customerMobile || '').localeCompare(b.customerMobile || '');
+      } else if (sortField === 'items') {
+        diff = (a.items?.length || 0) - (b.items?.length || 0);
+      } else if (sortField === 'amount') {
+        diff = Number(a.grandTotal || 0) - Number(b.grandTotal || 0);
+      } else {
+        // 'date'
+        diff = new Date(a.date || a.createdAt || 0) - new Date(b.date || b.createdAt || 0);
+      }
+      return sortDirection === 'asc' ? diff : -diff;
+    });
+  }, [filteredBills, sortField, sortDirection]);
 
   // Active Filtered Statistics (Reflects Financial Year or Single Date Selection)
   const activeStats = useMemo(() => {
@@ -168,13 +216,20 @@ export default function ReportTab() {
     setPrintModalBill(bill);
   };
 
-  // Handle delete
+  // Handle delete (Strict Stack Order)
   const confirmDelete = (id) => {
-    deleteBill(id);
-    setDeleteConfirmId(null);
-    showToast('warning', 'बिल सफलतापूर्वक हटा दिया गया!', 'बिल हटाया गया');
-    setNotification('बिल सफलतापूर्वक हटा दिया गया!');
-    setTimeout(() => setNotification(null), 3000);
+    try {
+      deleteBill(id);
+      setDeleteConfirmId(null);
+      showToast('warning', 'बिल सफलतापूर्वक हटा दिया गया!', 'बिल हटाया गया');
+      setNotification('बिल सफलतापूर्वक हटा दिया गया!');
+      setTimeout(() => setNotification(null), 3000);
+    } catch (err) {
+      setDeleteConfirmId(null);
+      showToast('error', err.message || 'बिल हटाने में त्रुटि!', 'त्रुटि');
+      setNotification(err.message);
+      setTimeout(() => setNotification(null), 5000);
+    }
   };
 
   // Handle personal JSON backup export
@@ -492,17 +547,73 @@ export default function ReportTab() {
                       title="सभी बिल चुनें / हटाएं"
                     />
                   </th>
-                  <th className="py-3 px-4">बिल नं.</th>
-                  <th className="py-3 px-4">दिनांक</th>
-                  <th className="py-3 px-4">ग्राहक का नाम</th>
-                  <th className="py-3 px-4">मोबाइल नं.</th>
-                  <th className="py-3 px-4 text-center">कुल सामान</th>
-                  <th className="py-3 px-4 text-right">फाइनल राशि (₹)</th>
+                  <th 
+                    onClick={() => handleSort('billNo')} 
+                    className="py-3 px-4 cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="बिल नंबर अनुसार छांटें"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>बिल नं.</span>
+                      {renderSortIcon('billNo')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('date')} 
+                    className="py-3 px-4 cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="दिनांक अनुसार छांटें"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>दिनांक</span>
+                      {renderSortIcon('date')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('customer')} 
+                    className="py-3 px-4 cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="ग्राहक नाम अनुसार छांटें"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>ग्राहक का नाम</span>
+                      {renderSortIcon('customer')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('mobile')} 
+                    className="py-3 px-4 cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="मोबाइल नंबर अनुसार छांटें"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>मोबाइल नं.</span>
+                      {renderSortIcon('mobile')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('items')} 
+                    className="py-3 px-4 text-center cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="सामान संख्या अनुसार छांटें"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>कुल सामान</span>
+                      {renderSortIcon('items')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('amount')} 
+                    className="py-3 px-4 text-right cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="राशि अनुसार छांटें"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      <span>फाइनल राशि (₹)</span>
+                      {renderSortIcon('amount')}
+                    </div>
+                  </th>
                   <th className="py-3 px-4 text-center">एक्शन (Action)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
-                {filteredBills.map((bill) => (
+                {sortedBills.map((bill) => {
+                  const isLatestBill = bill.id === bills[0]?.id;
+                  return (
                   <tr key={bill.id} className="hover:bg-slate-50/70 transition-colors">
                     {/* Checkbox */}
                     <td className="py-3 px-3 text-center">
@@ -522,11 +633,18 @@ export default function ReportTab() {
 
                     {/* Bill No */}
                     <td className="py-3 px-4 font-mono font-bold text-indigo-700">
-                      {bill.billNo}
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <span>{bill.billNo}</span>
+                        {isLatestBill && (
+                          <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded border border-amber-300 whitespace-nowrap">
+                            अंतिम बिल
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Date */}
-                    <td className="py-3 px-4 text-slate-600 text-xs font-medium">
+                    <td className="py-3 px-4 text-slate-600 text-xs font-medium whitespace-nowrap">
                       {bill.date}
                     </td>
 
@@ -574,7 +692,7 @@ export default function ReportTab() {
                           <Eye className="w-4 h-4" />
                         </button>
 
-                        {/* Edit Button */}
+                        {/* Edit Button - Always Available */}
                         <button
                           onClick={() => handleEditBill(bill)}
                           className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md font-bold text-xs flex items-center gap-1 transition-colors border border-blue-200 cursor-pointer"
@@ -584,18 +702,33 @@ export default function ReportTab() {
                           <span>एडिट</span>
                         </button>
 
-                        {/* Delete Button */}
-                        <button
-                          onClick={() => setDeleteConfirmId(bill.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
-                          title="हटाएं (Delete)"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {/* Delete Button - Stack Order (Only Last Bill Allowed) */}
+                        {isLatestBill ? (
+                          <button
+                            onClick={() => setDeleteConfirmId(bill.id)}
+                            className="p-1.5 text-rose-500 hover:text-white hover:bg-rose-600 rounded-md transition-colors cursor-pointer"
+                            title="अंतिम बिल हटाएं (Delete Last Bill)"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              showToast('error', `⚠️ केवल सबसे अंतिम बिल (#${bills[0]?.billNo || ''}) ही हटाया जा सकता है! बीच के बिल हटाना प्रतिबंधित है। आवश्यकता होने पर आप बिल को एडिट कर सकते हैं।`, 'हटाना प्रतिबंधित');
+                            }}
+                            className="p-1.5 text-slate-300 hover:text-rose-500 rounded-md transition-colors cursor-not-allowed opacity-50"
+                            title="⚠️ केवल सबसे अंतिम बिल ही हटाया जा सकता है! बीच के बिल डिलीट करना प्रतिबंधित है।"
+                          >
+                            <Lock className="w-3.5 h-3.5 inline mr-0.5" />
+                            <Trash2 className="w-3.5 h-3.5 inline" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
-                ))}
+                );
+              })}
               </tbody>
             </table>
           </div>

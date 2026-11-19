@@ -20,7 +20,9 @@ import {
   Receipt,
   Truck,
   Layers,
-  ArrowUpDown
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 
 import { 
@@ -68,6 +70,28 @@ export default function ReportTab() {
   // Financial Year Filter State ('ALL' | e.g. '2026' for FY 2026-27: 1 Apr 2026 - 31 Mar 2027)
   const currentFY = useMemo(() => getCurrentFinancialYear(), []);
   const [selectedFY, setSelectedFY] = useState('ALL');
+
+  // Sorting state for column headers (Title Tab)
+  const [sortField, setSortField] = useState('date');
+  const [sortDirection, setSortDirection] = useState('desc'); // 'asc' | 'desc'
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const renderSortIcon = (field) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60 inline ml-1 shrink-0" />;
+    }
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="w-3.5 h-3.5 text-blue-600 inline ml-1 shrink-0 font-bold" />
+      : <ArrowDown className="w-3.5 h-3.5 text-blue-600 inline ml-1 shrink-0 font-bold" />;
+  };
 
   const [previewBill, setPreviewBill] = useState(null);
   const [previewPurchase, setPreviewPurchase] = useState(null);
@@ -166,6 +190,54 @@ export default function ReportTab() {
       return matchSearch && matchDate && matchFY;
     });
   }, [purchases, searchTerm, fromDate, toDate, selectedFY]);
+
+  // Arranged / Sorted Sales Bills (Ascending or Descending by Title Tab)
+  const sortedBills = useMemo(() => {
+    return [...filteredBills].sort((a, b) => {
+      let diff = 0;
+      if (sortField === 'billNo') {
+        diff = (a.billNo || '').localeCompare(b.billNo || '', undefined, { numeric: true });
+      } else if (sortField === 'customer') {
+        diff = (a.customerName || '').localeCompare(b.customerName || '');
+      } else if (sortField === 'items') {
+        diff = (a.items?.length || 0) - (b.items?.length || 0);
+      } else if (sortField === 'taxable') {
+        diff = Number(a.taxableTotal || 0) - Number(b.taxableTotal || 0);
+      } else if (sortField === 'gst') {
+        diff = Number(a.totalGst || 0) - Number(b.totalGst || 0);
+      } else if (sortField === 'amount') {
+        diff = Number(a.grandTotal || 0) - Number(b.grandTotal || 0);
+      } else {
+        // 'date'
+        diff = new Date(a.date || a.createdAt || 0) - new Date(b.date || b.createdAt || 0);
+      }
+      return sortDirection === 'asc' ? diff : -diff;
+    });
+  }, [filteredBills, sortField, sortDirection]);
+
+  // Arranged / Sorted Purchases (Ascending or Descending by Title Tab)
+  const sortedPurchases = useMemo(() => {
+    return [...filteredPurchases].sort((a, b) => {
+      let diff = 0;
+      if (sortField === 'billNo' || sortField === 'purchaseNo') {
+        diff = (a.purchaseNo || '').localeCompare(b.purchaseNo || '', undefined, { numeric: true });
+      } else if (sortField === 'customer' || sortField === 'supplier') {
+        diff = (a.supplierName || '').localeCompare(b.supplierName || '');
+      } else if (sortField === 'items') {
+        diff = (a.items?.length || 0) - (b.items?.length || 0);
+      } else if (sortField === 'taxable') {
+        diff = Number(a.totalTaxable || 0) - Number(b.totalTaxable || 0);
+      } else if (sortField === 'gst') {
+        diff = Number(a.totalGst || 0) - Number(b.totalGst || 0);
+      } else if (sortField === 'amount') {
+        diff = Number(a.grandTotal || 0) - Number(b.grandTotal || 0);
+      } else {
+        // 'date'
+        diff = new Date(a.date || a.createdAt || 0) - new Date(b.date || b.createdAt || 0);
+      }
+      return sortDirection === 'asc' ? diff : -diff;
+    });
+  }, [filteredPurchases, sortField, sortDirection]);
 
   // Active Filtered Stats (Reflects Financial Year or Single Date Selection)
   const activeStats = useMemo(() => {
@@ -634,25 +706,90 @@ export default function ReportTab() {
                       title="सभी बिल चुनें / हटाएं"
                     />
                   </th>
-                  <th className="py-3 px-3 w-32">इनवॉइस नंबर</th>
-                  <th className="py-3 px-3 w-24">दिनांक</th>
-                  <th className="py-3 px-4">ग्राहक विवरण (Buyer)</th>
-                  <th className="py-3 px-3">आइटम्स / विवरण</th>
-                  <th className="py-3 px-3 w-24 text-right">टैक्सेबल (₹)</th>
-                  <th className="py-3 px-3 w-20 text-right">GST (₹)</th>
-                  <th className="py-3 px-4 w-28 text-right">कुल बिल (₹)</th>
+                  <th 
+                    onClick={() => handleSort('billNo')} 
+                    className="py-3 px-3 w-32 cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="बिल नंबर अनुसार छांटें (कम/ज्यादा)"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>इनवॉइस नंबर</span>
+                      {renderSortIcon('billNo')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('date')} 
+                    className="py-3 px-3 w-28 cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="दिनांक अनुसार छांटें (नया/पुराना)"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>दिनांक</span>
+                      {renderSortIcon('date')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('customer')} 
+                    className="py-3 px-4 cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="ग्राहक नाम अनुसार छांटें (A-Z)"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>ग्राहक विवरण (Buyer)</span>
+                      {renderSortIcon('customer')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('items')} 
+                    className="py-3 px-3 cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="आइटम संख्या अनुसार छांटें"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>आइटम्स / विवरण</span>
+                      {renderSortIcon('items')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('taxable')} 
+                    className="py-3 px-3 w-24 text-right cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="टैक्सेबल राशि अनुसार छांटें"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      <span>टैक्सेबल (₹)</span>
+                      {renderSortIcon('taxable')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('gst')} 
+                    className="py-3 px-3 w-20 text-right cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="GST राशि अनुसार छांटें"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      <span>GST (₹)</span>
+                      {renderSortIcon('gst')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('amount')} 
+                    className="py-3 px-4 w-28 text-right cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="कुल राशि अनुसार छांटें"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      <span>कुल बिल (₹)</span>
+                      {renderSortIcon('amount')}
+                    </div>
+                  </th>
                   <th className="py-3 px-4 w-36 text-center">कार्रवाई</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredBills.length === 0 ? (
+                {sortedBills.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-8 text-center text-slate-400">
                       कोई जीएसटी बिल रिकॉर्ड नहीं मिला।
                     </td>
                   </tr>
                 ) : (
-                  filteredBills.map((bill, index) => (
+                  sortedBills.map((bill, index) => {
+                    const isLatestBill = bill.id === gstBills[0]?.id;
+                    return (
                     <tr key={bill.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-3 text-center">
                         <div className="flex items-center justify-center gap-1">
@@ -672,9 +809,16 @@ export default function ReportTab() {
                         </div>
                       </td>
                       <td className="py-3 px-3 font-mono font-bold text-indigo-900">
-                        {bill.billNo}
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span>{bill.billNo}</span>
+                          {isLatestBill && (
+                            <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded border border-amber-300 whitespace-nowrap">
+                              अंतिम बिल
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="py-3 px-3 font-medium text-slate-700">
+                      <td className="py-3 px-3 font-medium text-slate-700 whitespace-nowrap">
                         {bill.date}
                       </td>
                       <td className="py-3 px-4">
@@ -731,28 +875,46 @@ export default function ReportTab() {
                           >
                             <Printer className="w-4 h-4" />
                           </button>
-                          {/* Edit */}
+                          {/* Edit - Always Available from anywhere */}
                           <button
                             type="button"
                             onClick={() => handleEditBill(bill)}
                             className="p-1.5 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg cursor-pointer"
-                            title="एडिट करें (Edit)"
+                            title="एडिट करें (Edit Bill Details)"
                           >
                             <Edit3 className="w-4 h-4" />
                           </button>
-                          {/* Delete */}
-                          <button
-                            type="button"
-                            onClick={() => setDeleteConfirm({ type: 'bill', id: bill.id, label: bill.billNo })}
-                            className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
-                            title="डिलीट करें (Delete & Restore Stock)"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {/* Delete - Stack Order: Only Last Bill allowed */}
+                          {isLatestBill ? (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirm({ type: 'bill', id: bill.id, label: bill.billNo })}
+                              className="p-1.5 text-rose-600 hover:text-white hover:bg-rose-600 rounded-lg cursor-pointer transition-colors"
+                              title="अंतिम बिल डिलीट करें (Delete Last Bill & Restore Stock)"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNotification({
+                                  type: 'error',
+                                  message: `⚠️ केवल सबसे अंतिम बिल (#${gstBills[0]?.billNo || ''}) ही हटाया जा सकता है! बीच के बिल हटाना प्रतिबंधित है। आप आवश्यकता पड़ने पर बिल को एडिट कर सकते हैं।`
+                                });
+                                setTimeout(() => setNotification(null), 5000);
+                              }}
+                              className="p-1.5 text-slate-300 hover:text-rose-500 rounded-lg cursor-not-allowed opacity-50"
+                              title="⚠️ केवल सबसे अंतिम बिल ही हटाया जा सकता है! बीच के बिल डिलीट करना प्रतिबंधित है।"
+                            >
+                              <Lock className="w-3.5 h-3.5 inline mr-0.5" />
+                              <Trash2 className="w-3.5 h-3.5 inline" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
-                  ))
+                  );})
                 )}
               </tbody>
             </table>
@@ -780,25 +942,90 @@ export default function ReportTab() {
                       title="सभी खरीद वाउचर चुनें / हटाएं"
                     />
                   </th>
-                  <th className="py-3 px-3 w-32">खरीद वाउचर सं.</th>
-                  <th className="py-3 px-3 w-24">दिनांक</th>
-                  <th className="py-3 px-4">सप्लायर / डिस्ट्रीब्यूटर</th>
-                  <th className="py-3 px-3">खरीदे गए सामान</th>
-                  <th className="py-3 px-3 w-24 text-right">टैक्सेबल (₹)</th>
-                  <th className="py-3 px-3 w-20 text-right">GST (₹)</th>
-                  <th className="py-3 px-4 w-28 text-right">कुल लागत (₹)</th>
+                  <th 
+                    onClick={() => handleSort('purchaseNo')} 
+                    className="py-3 px-3 w-32 cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="खरीद नंबर अनुसार छांटें"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>खरीद वाउचर सं.</span>
+                      {renderSortIcon('purchaseNo')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('date')} 
+                    className="py-3 px-3 w-28 cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="दिनांक अनुसार छांटें"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>दिनांक</span>
+                      {renderSortIcon('date')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('supplier')} 
+                    className="py-3 px-4 cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="सप्लायर अनुसार छांटें"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>सप्लायर / डिस्ट्रीब्यूटर</span>
+                      {renderSortIcon('supplier')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('items')} 
+                    className="py-3 px-3 cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="आइटम संख्या अनुसार छांटें"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>खरीदे गए सामान</span>
+                      {renderSortIcon('items')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('taxable')} 
+                    className="py-3 px-3 w-24 text-right cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="टैक्सेबल राशि अनुसार छांटें"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      <span>टैक्सेबल (₹)</span>
+                      {renderSortIcon('taxable')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('gst')} 
+                    className="py-3 px-3 w-20 text-right cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="GST राशि अनुसार छांटें"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      <span>GST (₹)</span>
+                      {renderSortIcon('gst')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('amount')} 
+                    className="py-3 px-4 w-28 text-right cursor-pointer hover:bg-slate-200/70 transition-colors select-none"
+                    title="कुल लागत अनुसार छांटें"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      <span>कुल लागत (₹)</span>
+                      {renderSortIcon('amount')}
+                    </div>
+                  </th>
                   <th className="py-3 px-4 w-28 text-center">कार्रवाई</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredPurchases.length === 0 ? (
+                {sortedPurchases.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-8 text-center text-slate-400">
                       कोई खरीद रिकॉर्ड नहीं मिला।
                     </td>
                   </tr>
                 ) : (
-                  filteredPurchases.map((pur, index) => (
+                  sortedPurchases.map((pur, index) => {
+                    const isLatestPur = pur.id === purchases[0]?.id || pur.purchaseNo === purchases[0]?.purchaseNo;
+                    return (
                     <tr key={pur.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-3 text-center">
                         <div className="flex items-center justify-center gap-1">
@@ -818,7 +1045,14 @@ export default function ReportTab() {
                         </div>
                       </td>
                       <td className="py-3 px-3 font-mono font-bold text-amber-900">
-                        <div>{pur.purchaseNo}</div>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span>{pur.purchaseNo}</span>
+                          {isLatestPur && (
+                            <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded border border-amber-300 whitespace-nowrap">
+                              अंतिम खरीद
+                            </span>
+                          )}
+                        </div>
                         {(() => {
                           const lockInfo = isPurchaseLockedDueToSale(pur);
                           if (lockInfo) {
@@ -943,6 +1177,25 @@ export default function ReportTab() {
                                 </button>
                               );
                             }
+                            if (!isLatestPur) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setNotification({
+                                      type: 'error',
+                                      message: `⚠️ केवल सबसे अंतिम खरीद प्रविष्टि (#${purchases[0]?.purchaseNo || ''}) ही डिलीट की जा सकती है! बीच की खरीद हटाना प्रतिबंधित है।`
+                                    });
+                                    setTimeout(() => setNotification(null), 5000);
+                                  }}
+                                  className="p-1.5 text-slate-300 hover:text-rose-500 rounded-lg cursor-not-allowed opacity-50"
+                                  title="⚠️ केवल सबसे अंतिम खरीद ही डिलीट की जा सकती है!"
+                                >
+                                  <Lock className="w-3.5 h-3.5 inline mr-0.5" />
+                                  <Trash2 className="w-3.5 h-3.5 inline" />
+                                </button>
+                              );
+                            }
                             return (
                               <button
                                 type="button"
@@ -957,7 +1210,7 @@ export default function ReportTab() {
                         </div>
                       </td>
                     </tr>
-                  ))
+                  );})
                 )}
               </tbody>
             </table>

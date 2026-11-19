@@ -232,10 +232,38 @@ export function RechargeProvider({ children }) {
     return newBill;
   };
 
-  // Delete transaction
+  // Active tab state
+  const [activeTab, setActiveTab] = useState('generate');
+
+  // Editing transaction state
+  const [editingTransaction, setEditingTransaction] = useState(null);
+
+  const startEditingTransaction = (bill) => {
+    setEditingTransaction(bill);
+    setActiveTab('generate');
+  };
+
+  const cancelEditingTransaction = () => {
+    setEditingTransaction(null);
+  };
+
+  const updateTransaction = (updatedTxn) => {
+    setTransactions(prev => prev.map(t => (t.id === updatedTxn.id ? updatedTxn : t)));
+    saveRechargeBillToCloud(activeUserId, updatedTxn);
+    setEditingTransaction(null);
+    return updatedTxn;
+  };
+
+  // Delete transaction (Strict Stack Order)
   const deleteTransaction = (id) => {
+    if (transactions.length > 0 && transactions[0].id !== id) {
+      throw new Error(`⚠️ केवल सबसे अंतिम रसीद (#${transactions[0].id}) ही हटाई जा सकती है! बीच के रिकॉर्ड हटाना प्रतिबंधित है। आप आवश्यकतानुसार रसीद को एडिट/अपडेट कर सकते हैं।`);
+    }
     setTransactions(prev => prev.filter(t => t.id !== id));
     deleteRechargeBillFromCloud(id);
+    if (editingTransaction && editingTransaction.id === id) {
+      setEditingTransaction(null);
+    }
   };
 
   // Clear all transactions for active seller
@@ -374,7 +402,13 @@ export function RechargeProvider({ children }) {
         exportUserData,
         exportData: exportUserData,
         importUserData,
-        importData: importUserData
+        importData: importUserData,
+        activeTab,
+        setActiveTab,
+        editingTransaction,
+        startEditingTransaction,
+        cancelEditingTransaction,
+        updateTransaction
       }}
     >
       {children}

@@ -476,10 +476,26 @@ export function BillingProvider({ children }) {
     return finalBill;
   };
 
-  // Delete Bill
+  // Delete Bill (Stack Order Check: Only latest bill allowed)
   const deleteBill = (id) => {
+    if (bills.length > 0 && bills[0].id !== id) {
+      throw new Error(`⚠️ केवल सबसे अंतिम बिल (#${bills[0].billNo || bills[0].id}) ही हटाया जा सकता है! बीच के बिल हटाना प्रतिबंधित है। आप आवश्यकतानुसार बिल को एडिट कर सकते हैं।`);
+    }
+
     setBills(prev => prev.filter(b => b.id !== id));
     deleteNonGstBillFromCloud(id);
+
+    // Rollback sequence number
+    setSettings(prev => {
+      const prevSeq = Number(prev.nextBillSeq || 1001);
+      const updated = {
+        ...prev,
+        nextBillSeq: Math.max(1001, prevSeq - 1)
+      };
+      saveShopSettingsToCloud(activeUserId, 'nongst', updated);
+      return updated;
+    });
+
     if (editingBill && editingBill.id === id) {
       setEditingBill(null);
     }

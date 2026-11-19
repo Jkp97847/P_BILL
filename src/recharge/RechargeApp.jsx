@@ -10,15 +10,14 @@ import { useNavigationHistory } from '../context/NavigationHistoryContext';
 
 function RechargeAppContent({ onBackToHub }) {
   const { currentRoute, navigate } = useNavigationHistory();
-  const [activeTab, setActiveTab] = useState(currentRoute.tab || 'generate');
-  const { activePrintSlip, settings, updateSettings } = useRecharge();
+  const { activePrintSlip, settings, updateSettings, activeTab, setActiveTab } = useRecharge();
 
   // Sync route tab -> activeTab when browser Back/Forward is clicked
   React.useEffect(() => {
     if (currentRoute.module === 'receipt_billing' && currentRoute.tab && currentRoute.tab !== activeTab) {
       setActiveTab(currentRoute.tab);
     }
-  }, [currentRoute.module, currentRoute.tab, activeTab]);
+  }, [currentRoute.module, currentRoute.tab, activeTab, setActiveTab]);
 
   const isConfigured = Boolean(settings?.isConfigured);
 

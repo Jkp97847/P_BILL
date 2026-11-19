@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRecharge, calculateConvenienceFee } from '../../context/RechargeContext';
 import RechargeReceiptSlip from '../RechargeReceiptSlip';
 import { 
@@ -10,7 +10,8 @@ import {
   Save, 
   RotateCcw, 
   CheckCircle2, 
-  AlertCircle 
+  AlertCircle,
+  Edit3
 } from 'lucide-react';
 import { formatMobileInput } from '../../../utils/validation';
 
@@ -46,7 +47,14 @@ const OPERATORS_BY_SERVICE = {
 };
 
 export default function RechargeGenerateTab() {
-  const { settings, addTransaction, printSlip } = useRecharge();
+  const { 
+    settings, 
+    addTransaction, 
+    printSlip,
+    editingTransaction,
+    cancelEditingTransaction,
+    updateTransaction
+  } = useRecharge();
 
   const [serviceType, setServiceType] = useState('electricity');
   const [operatorId, setOperatorId] = useState('jaipur');
@@ -64,6 +72,24 @@ export default function RechargeGenerateTab() {
   });
 
   const [notification, setNotification] = useState(null);
+
+  // Sync form data if editing an existing transaction
+  useEffect(() => {
+    if (editingTransaction) {
+      setServiceType(editingTransaction.serviceType || 'electricity');
+      const ops = OPERATORS_BY_SERVICE[editingTransaction.serviceType] || [];
+      const foundOp = ops.find(o => o.name === editingTransaction.operatorName) || ops[0] || {};
+      setOperatorId(foundOp.id || '');
+      setFormData({
+        consumerNo: editingTransaction.consumerNo || '',
+        customerName: editingTransaction.customerName || '',
+        billDate: editingTransaction.billDate || new Date().toISOString().split('T')[0],
+        billAmount: String(editingTransaction.billAmount || ''),
+        subDivision: editingTransaction.subDivision || foundOp.defaultSub || '',
+        notes: editingTransaction.notes || ''
+      });
+    }
+  }, [editingTransaction]);
 
   // When service type changes, update operator
   const handleServiceChange = (st) => {
@@ -115,6 +141,9 @@ export default function RechargeGenerateTab() {
   }, [serviceType, selectedOperator, formData, billAmountNum, conveFeeNum, totalAmountNum, settings.shopName]);
 
   const handleReset = () => {
+    if (editingTransaction) {
+      cancelEditingTransaction();
+    }
     setFormData({
       consumerNo: '',
       customerName: '',
@@ -142,6 +171,30 @@ export default function RechargeGenerateTab() {
   const handleSaveBill = () => {
     if (!validateForm()) return;
 
+    if (editingTransaction) {
+      const updated = updateTransaction({
+        ...editingTransaction,
+        serviceType,
+        operatorName: selectedOperator.name,
+        operatorLogo: selectedOperator.logo,
+        consumerNo: formData.consumerNo.trim(),
+        customerName: formData.customerName.trim() || formData.consumerNo.trim(),
+        billDate: formData.billDate,
+        billAmount: billAmountNum,
+        conveFee: conveFeeNum,
+        totalAmount: totalAmountNum,
+        subDivision: formData.subDivision.trim(),
+        notes: formData.notes.trim()
+      });
+
+      setNotification({
+        type: 'success',
+        message: `✅ रसीद #${updated.id} सफलतापूर्वक अपडेट हो गई!`
+      });
+      setTimeout(() => setNotification(null), 5000);
+      return;
+    }
+
     const saved = addTransaction({
       serviceType,
       operatorName: selectedOperator.name,
@@ -165,6 +218,26 @@ export default function RechargeGenerateTab() {
 
   const handlePrintSlip = () => {
     if (!validateForm()) return;
+
+    if (editingTransaction) {
+      const updated = updateTransaction({
+        ...editingTransaction,
+        serviceType,
+        operatorName: selectedOperator.name,
+        operatorLogo: selectedOperator.logo,
+        consumerNo: formData.consumerNo.trim(),
+        customerName: formData.customerName.trim() || formData.consumerNo.trim(),
+        billDate: formData.billDate,
+        billAmount: billAmountNum,
+        conveFee: conveFeeNum,
+        totalAmount: totalAmountNum,
+        subDivision: formData.subDivision.trim(),
+        notes: formData.notes.trim()
+      });
+
+      printSlip(updated);
+      return;
+    }
 
     const saved = addTransaction({
       serviceType,
@@ -225,13 +298,29 @@ export default function RechargeGenerateTab() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Form (7 Cols) */}
         <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          {editingTransaction && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded-xl flex items-center justify-between text-amber-900 text-sm font-bold">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>आप रसीद #{editingTransaction.id} को संपादित (Edit) कर रहे हैं</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="px-3 py-1 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg border border-amber-300 shadow-sm cursor-pointer"
+              >
+                रद्द करें (Cancel)
+              </button>
+            </div>
+          )}
+
           <div className="border-b border-slate-200 pb-4 mb-5">
             <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
               <span className="text-amber-500">⚡</span>
-              <span>नया बिल / रिचार्ज भुगतान (Generate Bill)</span>
+              <span>{editingTransaction ? `रसीद संपादन (#${editingTransaction.id})` : 'नया बिल / रिचार्ज भुगतान (Generate Bill)'}</span>
             </h2>
             <p className="text-xs text-slate-500 mt-1">
-              सेवा चुनें, ऑपरेटर व उपभोक्ता विवरण भरें। सुविधा शुल्क स्वतः गणना होगा।
+              {editingTransaction ? 'आवश्यक परिवर्तन करें और रसीद अपडेट करें।' : 'सेवा चुनें, ऑपरेटर व उपभोक्ता विवरण भरें। सुविधा शुल्क स्वतः गणना होगा।'}
             </p>
           </div>
 
@@ -441,7 +530,7 @@ export default function RechargeGenerateTab() {
               className="flex-1 py-3 px-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition-all cursor-pointer"
             >
               <Printer className="w-4 h-4" />
-              <span>तुरंत रसीद प्रिंट करें (Print Slip)</span>
+              <span>{editingTransaction ? 'रसीद अपडेट व प्रिंट करें' : 'तुरंत रसीद प्रिंट करें (Print Slip)'}</span>
             </button>
 
             <button
@@ -450,17 +539,17 @@ export default function RechargeGenerateTab() {
               className="py-3 px-5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 transition-all cursor-pointer"
             >
               <Save className="w-4 h-4" />
-              <span>सुरक्षित करें (Save Only)</span>
+              <span>{editingTransaction ? 'रसीद अपडेट करें (Update)' : 'सुरक्षित करें (Save Only)'}</span>
             </button>
 
             <button
               type="button"
               onClick={handleReset}
               className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-              title="फॉर्म रीसेट करें"
+              title={editingTransaction ? "संपादन रद्द करें" : "फॉर्म रीसेट करें"}
             >
               <RotateCcw className="w-4 h-4" />
-              <span>रीसेट</span>
+              <span>{editingTransaction ? 'रद्द करें' : 'रीसेट'}</span>
             </button>
           </div>
         </div>

@@ -774,6 +774,12 @@ export function BillingProvider({ children }) {
     const bill = gstBills.find(b => b.id === billId);
     if (!bill) return;
 
+    // Stack Order Check: Only the latest bill (top of stack) can be deleted
+    const latestBill = gstBills[0];
+    if (latestBill && latestBill.id !== billId) {
+      throw new Error(`⚠️ केवल सबसे अंतिम बिल (#${latestBill.billNo || latestBill.id}) ही हटाया जा सकता है! बीच के बिल हटाना प्रतिबंधित है। आवश्यकता होने पर आप बिल को एडिट/अपडेट कर सकते हैं।`);
+    }
+
     // Restore stock & restore sold serials
     setInventory(prevInv => {
       let updated = [...prevInv];
@@ -802,6 +808,12 @@ export function BillingProvider({ children }) {
       }
       return updated;
     });
+
+    // Rollback next sequence number if possible
+    setSettings(prev => ({
+      ...prev,
+      nextBillSeq: Math.max(1001, Number(prev.nextBillSeq || 1001) - 1)
+    }));
 
     setGstBills(prev => prev.filter(b => b.id !== billId));
     deleteGstBillFromCloud(billId);
@@ -1007,6 +1019,12 @@ export function BillingProvider({ children }) {
   const deletePurchase = (purchaseId) => {
     const pur = purchases.find(p => p.id === purchaseId || p.purchaseNo === purchaseId);
     if (!pur) return;
+
+    // Stack Order Check: Only the latest purchase (top of stack) can be deleted
+    const latestPur = purchases[0];
+    if (latestPur && latestPur.id !== pur.id && latestPur.purchaseNo !== pur.purchaseNo) {
+      throw new Error(`⚠️ केवल सबसे अंतिम खरीद प्रविष्टि (#${latestPur.purchaseNo}) ही डिलीट की जा सकती है! बीच की खरीद हटाना प्रतिबंधित है। आवश्यकता होने पर आप खरीद को एडिट कर सकते हैं।`);
+    }
 
     const lockInfo = isPurchaseLockedDueToSale(pur);
     if (lockInfo) {
