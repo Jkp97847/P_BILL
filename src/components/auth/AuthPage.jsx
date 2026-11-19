@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigationHistory } from '../../context/NavigationHistoryContext';
+import GoogleRecaptcha from '../common/GoogleRecaptcha';
 import { 
   Lock, 
   User, 
@@ -93,6 +94,8 @@ export default function AuthPage() {
   // 1. Seller Login Form State
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [userCaptchaToken, setUserCaptchaToken] = useState('');
+  const userRecaptchaRef = useRef(null);
 
   // 2. Registration Form State (Only 4 Fields: Username, Mobile, Password, Confirm Password)
   const [regData, setRegData] = useState({
@@ -188,17 +191,8 @@ export default function AuthPage() {
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [showAdminPassword, setShowAdminPassword] = useState(false);
-  const [adminCaptcha, setAdminCaptcha] = useState({ num1: 15, num2: 10, answer: 25 });
-  const [adminCaptchaInput, setAdminCaptchaInput] = useState('');
-  const [adminError, setAdminError] = useState('');
-  const [adminLoading, setAdminLoading] = useState(false);
-
-  const generateAdminCaptcha = () => {
-    const a1 = Math.floor(Math.random() * 30) + 10;
-    const a2 = Math.floor(Math.random() * 20) + 5;
-    setAdminCaptcha({ num1: a1, num2: a2, answer: a1 + a2 });
-    setAdminCaptchaInput('');
-  };
+  const [adminCaptchaToken, setAdminCaptchaToken] = useState('');
+  const adminRecaptchaRef = useRef(null);
 
   // 7. Interactive WhatsApp Forgot Password Self-Service State
   const [forgotIdentifier, setForgotIdentifier] = useState(''); // username or 10-digit mobile
@@ -258,15 +252,15 @@ export default function AuthPage() {
       return;
     }
 
-    if (parseInt(captchaInput, 10) !== captcha.answer) {
+    // Google reCAPTCHA Verification for User Login
+    if (!userCaptchaToken) {
       setWarningModal({
         isOpen: true,
-        title: '⚠️ सुरक्षा कैप्चा गलत है',
-        message: 'सुरक्षा कैप्चा (Captcha) का उत्तर गलत है! कृपया सही जोड़ दर्ज करें।',
+        title: '⚠️ Google reCAPTCHA सत्यापन आवश्यक',
+        message: 'कृपया लॉगिन करने से पहले "I\'m not a robot" (Google reCAPTCHA) बॉक्स पर टिक करके सत्यापन पूरा करें।',
         type: 'warning'
       });
-      setErrorMsg('सुरक्षा कैप्चा (Captcha) गलत है! कृपया सही जोड़ दर्ज करें।');
-      generateNewCaptcha();
+      setErrorMsg('कृपया Google reCAPTCHA ("I\'m not a robot") सत्यापन पूरा करें।');
       return;
     }
 
@@ -283,7 +277,8 @@ export default function AuthPage() {
           type: 'error'
         });
         setErrorMsg(res.error);
-        generateNewCaptcha();
+        userRecaptchaRef.current?.reset();
+        setUserCaptchaToken('');
       } else {
         setSuccessMsg(`सफलतापूर्वक लॉगिन हुआ! स्वागत है, ${res.user.profile?.ownerName || res.user.username}`);
         navigate({ module: 'hub' });
@@ -301,9 +296,8 @@ export default function AuthPage() {
       return;
     }
 
-    if (parseInt(adminCaptchaInput, 10) !== adminCaptcha.answer) {
-      setAdminError('सुरक्षा कैप्चा गलत है!');
-      generateAdminCaptcha();
+    if (!adminCaptchaToken) {
+      setAdminError('कृपया Google reCAPTCHA ("I\'m not a robot") सत्यापन पूरा करें!');
       return;
     }
 
@@ -314,7 +308,8 @@ export default function AuthPage() {
 
       if (!res.success) {
         setAdminError(res.error);
-        generateAdminCaptcha();
+        adminRecaptchaRef.current?.reset();
+        setAdminCaptchaToken('');
       } else {
         setAdminModalOpen(false);
         navigate({ module: 'superadmin' });
@@ -646,7 +641,6 @@ export default function AuthPage() {
   const handleFillSellerLogin = () => {
     setLoginUsername('seller1');
     setLoginPassword('Seller@123456');
-    setCaptchaInput(String(captcha.answer));
     setErrorMsg('');
   };
 
@@ -809,36 +803,18 @@ export default function AuthPage() {
                 </div>
               </div>
 
-              {/* Anti-Robot Captcha */}
-              <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <span>एंटी-रोबोट सत्यापन (Captcha):</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={generateNewCaptcha}
-                    className="text-[11px] text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-semibold cursor-pointer"
-                  >
-                    <RefreshCw className="w-3 h-3" />
-                    <span>नया सवाल</span>
-                  </button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="bg-white border-2 border-indigo-300 px-4 py-2 rounded-lg font-mono font-black text-base text-indigo-900 tracking-wider select-none shadow-2xs">
-                    {captcha.num1} + {captcha.num2} = ?
-                  </div>
-                  <input
-                    type="number"
-                    value={captchaInput}
-                    onChange={(e) => setCaptchaInput(e.target.value)}
-                    placeholder="उत्तर यहाँ लिखें"
-                    className="flex-1 px-3 py-2 text-xs font-mono font-bold border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                    required
-                  />
-                </div>
-              </div>
+              {/* Google reCAPTCHA for User Login */}
+              <GoogleRecaptcha
+                ref={userRecaptchaRef}
+                title="एंटी-रोबोट सत्यापन (Google reCAPTCHA):"
+                onVerify={(token) => {
+                  setUserCaptchaToken(token);
+                  setErrorMsg('');
+                }}
+                onExpired={() => {
+                  setUserCaptchaToken('');
+                }}
+              />
 
               <button
                 type="submit"
@@ -1476,7 +1452,7 @@ export default function AuthPage() {
             setAdminUsername('');
             setAdminPassword('');
             setAdminError('');
-            generateAdminCaptcha();
+            setAdminCaptchaToken('');
           }}
           className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-800/90 hover:bg-slate-750 text-slate-300 hover:text-amber-300 border border-slate-700/80 hover:border-amber-400/50 text-xs font-bold transition-all cursor-pointer shadow-sm mt-1"
           title="सुपर एडमिन कंट्रोल रूम (Master Admin)"
@@ -1569,35 +1545,19 @@ export default function AuthPage() {
                   </div>
                 </div>
 
-                {/* Admin Captcha */}
-                <div className="bg-purple-50/60 border border-purple-200 p-3 rounded-xl space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-purple-950 flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-purple-700" />
-                      <span>सुरक्षा कैप्चा:</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={generateAdminCaptcha}
-                      className="text-[10px] text-purple-700 font-bold hover:underline cursor-pointer"
-                    >
-                      नया सवाल
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="bg-white border border-purple-300 px-3 py-1.5 rounded-lg font-mono font-black text-sm text-purple-950 select-none">
-                      {adminCaptcha.num1} + {adminCaptcha.num2} = ?
-                    </div>
-                    <input
-                      type="number"
-                      value={adminCaptchaInput}
-                      onChange={(e) => setAdminCaptchaInput(e.target.value)}
-                      placeholder="उत्तर लिखें"
-                      className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-purple-500"
-                      required
-                    />
-                  </div>
-                </div>
+                {/* Google reCAPTCHA for Admin Login */}
+                <GoogleRecaptcha
+                  key={`admin-recaptcha-${adminModalOpen}`}
+                  ref={adminRecaptchaRef}
+                  title="सुपर एडमिन सुरक्षा सत्यापन:"
+                  onVerify={(token) => {
+                    setAdminCaptchaToken(token);
+                    setAdminError('');
+                  }}
+                  onExpired={() => {
+                    setAdminCaptchaToken('');
+                  }}
+                />
 
                 <button
                   type="submit"
