@@ -24,11 +24,8 @@ import {
   Mail,
   Palette,
   Sparkles,
-  CreditCard,
-  Printer,
-  Copy
+  CreditCard
 } from 'lucide-react';
-import MultiBillPrintModal from '../../../components/modals/MultiBillPrintModal';
 import {
   formatMobileInput,
   validateMobile,
@@ -123,17 +120,8 @@ const THEME_OPTIONS = [
 ];
 
 export default function FormatEditTab() {
-  const { 
-    settings, 
-    updateSettings, 
-    setTheme, 
-    resetSettings,
-    triggerPrint,
-    triggerMultiCopyBillPrint
-  } = useBilling();
+  const { settings, updateSettings, setTheme, resetSettings } = useBilling();
   const { showToast } = useToast();
-
-  const [isMultiPrintModalOpen, setIsMultiPrintModalOpen] = useState(false);
 
   // Local form state cloned from settings
   const [formData, setFormData] = useState({
@@ -1151,30 +1139,10 @@ export default function FormatEditTab() {
               लाइव बिल फॉर्मेट प्रीव्यू (Live Bill Preview)
             </h3>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs bg-indigo-100 text-indigo-800 font-bold px-3 py-1 rounded-full flex items-center gap-1.5 w-fit">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-              <span>सक्रिय: {THEME_OPTIONS.find(t => t.id === (formData.selectedTheme || 'classic'))?.name || '1. क्लासिक नॉन-जीएसटी'}</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => triggerPrint(sampleBillForPreview)}
-              className="flex items-center gap-1 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-xs cursor-pointer"
-              title="वर्तमान थीम में बिल प्रिंट टेस्ट करें"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>प्रिंट टेस्ट</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsMultiPrintModalOpen(true)}
-              className="flex items-center gap-1 px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-lg shadow-xs cursor-pointer"
-              title="मल्टी कॉपी प्रिंट टेस्ट (मूल + द्वितीय प्रति)"
-            >
-              <Copy className="w-3.5 h-3.5" />
-              <span>मल्टी प्रिंट टेस्ट</span>
-            </button>
-          </div>
+          <span className="text-xs bg-indigo-100 text-indigo-800 font-bold px-3 py-1 rounded-full flex items-center gap-1.5 w-fit">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+            <span>सक्रिय: {THEME_OPTIONS.find(t => t.id === (formData.selectedTheme || 'classic'))?.name || '1. क्लासिक नॉन-जीएसटी'}</span>
+          </span>
         </div>
 
         <p className="text-xs text-slate-500 mb-3">
@@ -1187,20 +1155,6 @@ export default function FormatEditTab() {
       </div>
     </div>
   </form>
-
-  {/* Multi-Copy Bill Print Modal */}
-  {isMultiPrintModalOpen && (
-    <MultiBillPrintModal
-      isOpen={isMultiPrintModalOpen}
-      onClose={() => setIsMultiPrintModalOpen(false)}
-      bill={sampleBillForPreview}
-      isBulk={false}
-      onConfirm={(options) => {
-        triggerMultiCopyBillPrint(options.bill, options.selectedCopies);
-        setIsMultiPrintModalOpen(false);
-      }}
-    />
-  )}
 </div>
   );
 }

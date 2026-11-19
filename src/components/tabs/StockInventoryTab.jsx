@@ -15,7 +15,6 @@ import {
   Save, 
   Filter, 
   Printer,
-  Copy,
   Eye,
   Truck,
   FileText,
@@ -27,7 +26,6 @@ import {
   Hash,
   Tag
 } from 'lucide-react';
-import MultiBillPrintModal from '../modals/MultiBillPrintModal';
 
 import { 
   getAvailableFinancialYears, 
@@ -45,7 +43,6 @@ export default function StockInventoryTab() {
     triggerPrintStock, 
     triggerPrintPurchase,
     triggerPrintReport,
-    triggerMultiPurchasePrint,
     startEditingPurchase,
     setActiveTab,
     parseSerials, 
@@ -58,10 +55,6 @@ export default function StockInventoryTab() {
 
   // Active View: 'inventory' (Current Stock) | 'purchases' (Purchase Inward Invoices)
   const [activeStockView, setActiveStockView] = useState('inventory');
-
-  // Multi-print state for purchases
-  const [selectedPurchaseIds, setSelectedPurchaseIds] = useState([]);
-  const [multiPrintModalData, setMultiPrintModalData] = useState(null);
 
   // Inventory Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -861,31 +854,6 @@ export default function StockInventoryTab() {
                 <Printer className="w-4 h-4" />
                 <span>वर्तमान लिस्ट प्रिंट ({filteredPurchases.length})</span>
               </button>
-
-              {/* 3. Multi-Purchase / Multi-Copy Voucher Print */}
-              <button
-                type="button"
-                onClick={() => {
-                  const toPrint = selectedPurchaseIds.length > 0
-                    ? filteredPurchases.filter(p => selectedPurchaseIds.includes(p.id))
-                    : filteredPurchases;
-                  if (toPrint.length === 0) {
-                    alert('प्रिंट के लिए कोई खरीद वाउचर उपलब्ध नहीं है');
-                    return;
-                  }
-                  setMultiPrintModalData({
-                    isOpen: true,
-                    isBulk: true,
-                    isPurchase: true,
-                    billsList: toPrint
-                  });
-                }}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs rounded-lg shadow-sm transition-all cursor-pointer whitespace-nowrap"
-                title="चयनित या सभी खरीद वाउचर्स को 1 साथ प्रिंट करें"
-              >
-                <Copy className="w-4 h-4" />
-                <span>मल्टी वाउचर प्रिंट {selectedPurchaseIds.length > 0 ? `(${selectedPurchaseIds.length} चयनित)` : ''}</span>
-              </button>
             </div>
           </div>
 
@@ -931,21 +899,7 @@ export default function StockInventoryTab() {
               <table className="w-full text-left border-collapse text-xs min-w-[1000px]">
                 <thead>
                   <tr className="bg-amber-50/70 text-amber-950 font-bold uppercase border-b border-amber-200">
-                    <th className="py-3 px-3 w-10 text-center">
-                      <input
-                        type="checkbox"
-                        checked={filteredPurchases.length > 0 && selectedPurchaseIds.length === filteredPurchases.length}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedPurchaseIds(filteredPurchases.map(p => p.id));
-                          } else {
-                            setSelectedPurchaseIds([]);
-                          }
-                        }}
-                        className="rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
-                        title="सभी वाउचर चुनें / हटाएं"
-                      />
-                    </th>
+                    <th className="py-3 px-3 w-10 text-center">#</th>
                     <th className="py-3 px-3 w-32">वाउचर सं.</th>
                     <th className="py-3 px-3 w-28">दिनांक</th>
                     <th className="py-3 px-4">सप्लायर विवरण (Supplier)</th>
@@ -967,22 +921,8 @@ export default function StockInventoryTab() {
                   ) : (
                     filteredPurchases.map((pur, index) => (
                       <tr key={pur.id} className="hover:bg-amber-50/30 transition-colors">
-                        <td className="py-3 px-3 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <input
-                              type="checkbox"
-                              checked={selectedPurchaseIds.includes(pur.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedPurchaseIds(prev => [...prev, pur.id]);
-                                } else {
-                                  setSelectedPurchaseIds(prev => prev.filter(id => id !== pur.id));
-                                }
-                              }}
-                              className="rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
-                            />
-                            <span className="font-bold text-slate-400 text-[10px]">{index + 1}</span>
-                          </div>
+                        <td className="py-3 px-3 text-center font-bold text-slate-400">
+                          {index + 1}
                         </td>
                         <td className="py-3 px-3 font-mono font-bold text-amber-900">
                           {pur.purchaseNo}
@@ -1050,16 +990,6 @@ export default function StockInventoryTab() {
                               <Printer className="w-4 h-4" />
                             </button>
 
-                            {/* Multi-Print Purchase */}
-                            <button
-                              type="button"
-                              onClick={() => setMultiPrintModalData({ isOpen: true, bill: pur, isPurchase: true })}
-                              className="p-1.5 text-slate-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg cursor-pointer transition-colors"
-                              title="मल्टी कॉपी वाउचर प्रिंट (मूल + स्टोर प्रति)"
-                            >
-                              <Copy className="w-4 h-4 text-purple-700" />
-                            </button>
-
                             {/* Edit Purchase in PURCHAGE tab */}
                             <button
                               type="button"
@@ -1106,7 +1036,7 @@ export default function StockInventoryTab() {
                 </p>
               </div>
 
-              {/* Action Buttons: 1-Click Print, Multi-Print & Close */}
+              {/* Action Buttons: 1-Click Print & Close */}
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -1116,16 +1046,6 @@ export default function StockInventoryTab() {
                 >
                   <Printer className="w-4 h-4" />
                   <span>🖨️ वाउचर प्रिंट करें</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setMultiPrintModalData({ isOpen: true, bill: previewPurchase, isPurchase: true })}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer"
-                  title="मल्टी कॉपी वाउचर प्रिंट (Original, Store Copy)"
-                >
-                  <Copy className="w-4 h-4" />
-                  <span>मल्टी कॉपी प्रिंट</span>
                 </button>
 
                 <button
@@ -1418,26 +1338,6 @@ export default function StockInventoryTab() {
             </form>
           </div>
         </div>
-      )}
-
-      {/* Multi-Purchase Print Modal */}
-      {multiPrintModalData?.isOpen && (
-        <MultiBillPrintModal
-          isOpen={multiPrintModalData.isOpen}
-          onClose={() => setMultiPrintModalData(null)}
-          bill={multiPrintModalData.bill}
-          billsList={multiPrintModalData.billsList}
-          isBulk={multiPrintModalData.isBulk}
-          isPurchase={true}
-          onConfirm={(options) => {
-            if (options.isBulk) {
-              triggerMultiPurchasePrint(options.billsList, options.copiesPerBill, options.selectedCopies);
-            } else {
-              triggerMultiPurchasePrint([options.bill], 1, options.selectedCopies);
-            }
-            setMultiPrintModalData(null);
-          }}
-        />
       )}
     </div>
   );

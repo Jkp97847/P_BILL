@@ -65,18 +65,6 @@ function NonGstMain() {
         {printDocument?.type === 'bill' && (
           <NonGstPrintableBill bill={printDocument.bill || activePrintBill} settings={settings} />
         )}
-        {printDocument?.type === 'multi_bill' && (
-          <div className="multi-bill-print-container">
-            {printDocument.bills?.map((bItem, bIdx) => (
-              <div
-                key={bIdx}
-                className={`printable-bill-wrapper ${bIdx < printDocument.bills.length - 1 ? 'bill-page-break' : ''}`}
-              >
-                <NonGstPrintableBill bill={bItem} settings={settings} />
-              </div>
-            ))}
-          </div>
-        )}
         {printDocument?.type === 'report' && (
           <PrintableReport
             reportType="nongst_sales"

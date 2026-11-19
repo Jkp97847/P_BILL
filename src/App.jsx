@@ -90,30 +90,6 @@ function MainApp() {
         {printDocument?.type === 'bill' && (
           <PrintableBill bill={printDocument.data || activePrintBill} settings={settings} />
         )}
-        {printDocument?.type === 'multi_bill' && (
-          <div className="multi-bill-print-container">
-            {printDocument.bills?.map((bItem, bIdx) => (
-              <div
-                key={bIdx}
-                className={`printable-bill-wrapper ${bIdx < printDocument.bills.length - 1 ? 'bill-page-break' : ''}`}
-              >
-                <PrintableBill bill={bItem} settings={settings} copyTitle={bItem._copyTitle} />
-              </div>
-            ))}
-          </div>
-        )}
-        {printDocument?.type === 'multi_purchase' && (
-          <div className="multi-bill-print-container">
-            {printDocument.purchases?.map((pItem, pIdx) => (
-              <div
-                key={pIdx}
-                className={`printable-bill-wrapper ${pIdx < printDocument.purchases.length - 1 ? 'bill-page-break' : ''}`}
-              >
-                <PrintablePurchaseInvoice purchase={pItem} settings={settings} />
-              </div>
-            ))}
-          </div>
-        )}
         {printDocument?.type === 'report' && (
           <PrintableReport
             reportType={printDocument.reportType}

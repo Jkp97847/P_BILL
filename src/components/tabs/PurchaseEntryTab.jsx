@@ -22,11 +22,9 @@ import {
   Lock,
   ShieldCheck,
   Printer,
-  Copy,
   ArrowRight,
   ClipboardList
 } from 'lucide-react';
-import MultiBillPrintModal from '../modals/MultiBillPrintModal';
 import {
   formatMobileInput,
   validateMobile,
@@ -61,9 +59,7 @@ export default function PurchaseEntryTab() {
     uniqueSuppliers,
     validateSerial,
     isSerialPurchased,
-    isPurchaseLockedDueToSale,
-    triggerPrintPurchase,
-    triggerMultiPurchasePrint
+    isPurchaseLockedDueToSale
   } = useBilling();
 
   // Helper to build a new empty row with Category and pre-filled Item Code
@@ -107,7 +103,6 @@ export default function PurchaseEntryTab() {
   // Verification Modal & Post-Save Summary Modal states
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [savedPurchaseDetails, setSavedPurchaseDetails] = useState(null);
-  const [multiPrintModalPurchase, setMultiPrintModalPurchase] = useState(null);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -1492,37 +1487,14 @@ export default function PurchaseEntryTab() {
 
             {/* Footer Buttons */}
             <div className="bg-slate-50 px-5 py-3.5 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => triggerPrintPurchase(savedPurchaseDetails)}
-                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors text-xs cursor-pointer flex items-center gap-1.5 shadow-xs"
-                  title="A4 साइज में खरीद इनवॉइस वाउचर प्रिंट करें"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>खरीद वाउचर प्रिंट</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setMultiPrintModalPurchase(savedPurchaseDetails)}
-                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors text-xs cursor-pointer flex items-center gap-1.5 shadow-xs"
-                  title="मल्टी कॉपी प्रिंट (मूल खरीद प्रति + स्टोर/कार्यालय प्रति)"
-                >
-                  <Copy className="w-4 h-4 text-indigo-200" />
-                  <span>मल्टी बिल प्रिंट (Multi Print)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="px-3 py-2 border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-100 transition-colors text-xs cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                  title="आइटम कोड व बारकोड लिस्ट प्रिंट करें"
-                >
-                  <Printer className="w-3.5 h-3.5 text-slate-500" />
-                  <span>बारकोड स्लिप</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-4 py-2 border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-100 transition-colors text-xs cursor-pointer flex items-center gap-1.5 shadow-2xs"
+              >
+                <Printer className="w-4 h-4 text-slate-600" />
+                <span>प्रिंट लिस्ट / बारकोड स्लिप</span>
+              </button>
 
               <div className="flex items-center gap-2">
                 <button
@@ -1548,15 +1520,6 @@ export default function PurchaseEntryTab() {
           </div>
         </div>
       )}
-
-      {/* Multi-Bill Print Modal for Purchases */}
-      <MultiBillPrintModal
-        isOpen={Boolean(multiPrintModalPurchase)}
-        onClose={() => setMultiPrintModalPurchase(null)}
-        bill={multiPrintModalPurchase}
-        isPurchase={true}
-        onPrintCopies={(p, copies) => triggerMultiPurchasePrint([p], copies.length, copies)}
-      />
     </div>
   );
 }

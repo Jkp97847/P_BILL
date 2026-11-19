@@ -2,12 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useBilling } from '../../context/NonGstBillingContext';
 import { useToast } from '../../context/NonGstToastContext';
 import PrintableBill from '../NonGstPrintableBill';
-import MultiBillPrintModal from '../../../components/modals/MultiBillPrintModal';
 import { 
   Plus, 
   Trash2, 
   Printer, 
-  Copy,
   Save, 
   RotateCcw, 
   Eye, 
@@ -36,7 +34,6 @@ export default function BillGenerateTab() {
     editingBill,
     cancelEditing,
     triggerPrint,
-    triggerMultiCopyBillPrint,
     setActivePrintBill
   } = useBilling();
 
@@ -52,8 +49,7 @@ export default function BillGenerateTab() {
   const [notification, setNotification] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingBillData, setPendingBillData] = useState(null);
-  const [selectedCopyPreset, setSelectedCopyPreset] = useState(1);
-  const [multiPrintModalData, setMultiPrintModalData] = useState(null);
+  const [shouldPrintAfterSave, setShouldPrintAfterSave] = useState(false);
 
   // Initialize or populate when editingBill changes
   useEffect(() => {
@@ -207,18 +203,7 @@ export default function BillGenerateTab() {
     if (!billData) return;
     setPendingBillData(billData);
     setShouldPrintAfterSave(shouldPrint);
-    setSelectedCopyPreset(1);
     setShowConfirmModal(true);
-  };
-
-  const handleSaveAndMultiPrint = () => {
-    const billData = prepareBillData();
-    if (!billData) return;
-    setMultiPrintModalData({
-      isOpen: true,
-      bill: billData,
-      isBulk: false
-    });
   };
 
   // Confirmed Execution for Save Bill
@@ -228,7 +213,6 @@ export default function BillGenerateTab() {
       const saved = saveBill(pendingBillData);
       setShowConfirmModal(false);
       const isPrinted = shouldPrintAfterSave;
-      const copiesCount = selectedCopyPreset;
       setPendingBillData(null);
 
       const successMsg = editingBill
@@ -242,14 +226,7 @@ export default function BillGenerateTab() {
       });
 
       if (isPrinted) {
-        if (copiesCount > 1) {
-          const copies = copiesCount === 2
-            ? ['मूल प्रति / ORIGINAL COPY', 'द्वितीय प्रति / DUPLICATE COPY']
-            : ['मूल प्रति / ORIGINAL COPY', 'द्वितीय प्रति / DUPLICATE COPY', 'कार्यालय प्रति / OFFICE COPY'];
-          triggerMultiCopyBillPrint(saved, copies);
-        } else {
-          triggerPrint(saved);
-        }
+        triggerPrint(saved);
       }
 
       if (!editingBill) {
@@ -585,16 +562,6 @@ export default function BillGenerateTab() {
           <Printer className="w-4 h-4" />
           <span>{editingBill ? 'अपडेट करें व प्रिंट निकालें' : 'सेव करें और प्रिंट निकालें (Save & Print)'}</span>
         </button>
-
-        <button
-          type="button"
-          onClick={handleSaveAndMultiPrint}
-          className="px-5 py-2.5 bg-purple-700 hover:bg-purple-800 text-white rounded-lg font-bold text-sm flex items-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
-          title="मल्टी कॉपी प्रिंट (Original, Duplicate, Triplicate)"
-        >
-          <Copy className="w-4 h-4" />
-          <span>मल्टी बिल प्रिंट (Multi Print)</span>
-        </button>
       </div>
 
       {/* Live Bill Preview on Screen (Visible when toggled) */}
@@ -605,31 +572,14 @@ export default function BillGenerateTab() {
               <Eye className="w-4 h-4 text-indigo-600" />
               <span>📄 वर्तमान बिल का लाइव प्रिंट प्रीव्यू (Live Print Preview):</span>
             </h3>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => triggerPrint(currentBillForPreview)}
-                className="text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg shadow-sm flex items-center gap-1.5 cursor-pointer"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>तुरंत प्रिंट करें</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMultiPrintModalData({
-                    isOpen: true,
-                    bill: currentBillForPreview,
-                    isBulk: false
-                  });
-                }}
-                className="text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg shadow-sm flex items-center gap-1.5 cursor-pointer"
-                title="मल्टी कॉपी प्रिंट (Original, Duplicate, Triplicate)"
-              >
-                <Copy className="w-3.5 h-3.5" />
-                <span>मल्टी प्रिंट</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => triggerPrint(currentBillForPreview)}
+              className="text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg shadow-sm flex items-center gap-1.5 cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>तुरंत प्रिंट करें</span>
+            </button>
           </div>
 
           <div className="bg-white p-2 rounded-xl shadow-lg overflow-x-auto">
@@ -694,32 +644,6 @@ export default function BillGenerateTab() {
                   <span className="font-mono text-emerald-700 text-base">₹{Number(pendingBillData.grandTotal || 0).toLocaleString('en-IN')}</span>
                 </div>
               </div>
-
-              {shouldPrintAfterSave && (
-                <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 space-y-1.5">
-                  <span className="text-xs font-bold text-purple-900 block">प्रिंट प्रतियां (Print Copies):</span>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { copies: 1, label: '1 प्रति' },
-                      { copies: 2, label: '2 प्रतियां' },
-                      { copies: 3, label: '3 प्रतियां' }
-                    ].map(p => (
-                      <button
-                        key={p.copies}
-                        type="button"
-                        onClick={() => setSelectedCopyPreset(p.copies)}
-                        className={`py-1 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
-                          selectedCopyPreset === p.copies
-                            ? 'bg-purple-700 text-white border-purple-700 shadow-xs'
-                            : 'bg-white text-purple-900 border-purple-200 hover:bg-purple-100'
-                        }`}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Modal Actions */}
@@ -745,30 +669,6 @@ export default function BillGenerateTab() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Multi-Copy Bill Print Modal */}
-      {multiPrintModalData?.isOpen && (
-        <MultiBillPrintModal
-          isOpen={multiPrintModalData.isOpen}
-          onClose={() => setMultiPrintModalData(null)}
-          bill={multiPrintModalData.bill}
-          isBulk={false}
-          onConfirm={(options) => {
-            try {
-              const saved = saveBill(options.bill);
-              const successMsg = editingBill
-                ? `नॉन-जीएसटी बिल #${saved.billNo} सफलतापूर्वक अपडेट कर दिया गया!`
-                : `नॉन-जीएसटी बिल #${saved.billNo} सफलतापूर्वक जनरेट हो गया!`;
-              showToast('success', successMsg, 'सफल');
-              if (!editingBill) resetForm();
-              triggerMultiCopyBillPrint(saved, options.selectedCopies);
-            } catch (err) {
-              triggerMultiCopyBillPrint(options.bill, options.selectedCopies);
-            }
-            setMultiPrintModalData(null);
-          }}
-        />
       )}
     </div>
   );

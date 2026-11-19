@@ -337,99 +337,6 @@ export function BillingProvider({ children }) {
     }, 150);
   };
 
-  // MULTI-BILL PRINT HELPERS (Multi-Copy & Bulk Invoices Print)
-  const COPY_TITLES_GST = {
-    1: 'मूल प्रति / ORIGINAL FOR RECIPIENT',
-    2: 'द्वितीय प्रति / DUPLICATE FOR TRANSPORTER',
-    3: 'तृतीय प्रति / TRIPLICATE FOR SUPPLIER',
-    4: 'कार्यालय प्रति / EXTRA / OFFICE COPY'
-  };
-
-  const triggerMultiCopyBillPrint = (billData, selectedCopies = [1, 2]) => {
-    if (!billData) return;
-    const copiesList = Array.isArray(selectedCopies) && selectedCopies.length > 0 ? selectedCopies : [1, 2];
-    const printableList = copiesList.map(copyNum => ({
-      ...billData,
-      _copyTitle: COPY_TITLES_GST[copyNum] || `प्रति #${copyNum} / COPY #${copyNum}`,
-      _copyIndex: copyNum
-    }));
-
-    setActivePrintBill(printableList[0] || null);
-    setPrintDocument({
-      type: 'multi_bill',
-      bills: printableList
-    });
-
-    setTimeout(() => {
-      window.print();
-    }, 200);
-  };
-
-  const triggerMultiBillPrint = (billsArray, copiesPerBill = 1, selectedCopies = null) => {
-    if (!billsArray || billsArray.length === 0) return;
-
-    const copiesList = Array.isArray(selectedCopies) && selectedCopies.length > 0
-      ? selectedCopies
-      : Array.from({ length: Math.max(1, copiesPerBill) }, (_, i) => i + 1);
-
-    const printableList = [];
-    billsArray.forEach(b => {
-      copiesList.forEach(copyNum => {
-        printableList.push({
-          ...b,
-          _copyTitle: COPY_TITLES_GST[copyNum] || `प्रति #${copyNum} / COPY #${copyNum}`,
-          _copyIndex: copyNum
-        });
-      });
-    });
-
-    setActivePrintBill(printableList[0] || null);
-    setPrintDocument({
-      type: 'multi_bill',
-      bills: printableList
-    });
-
-    setTimeout(() => {
-      window.print();
-    }, 200);
-  };
-
-  const triggerMultiPurchasePrint = (purchasesArray, copiesPerPurchase = 1, selectedCopies = null) => {
-    if (!purchasesArray || purchasesArray.length === 0) return;
-
-    const COPY_TITLES_PURCHASE = {
-      1: 'खरीद वाउचर (मूल प्रति) / ORIGINAL PURCHASE VOUCHER',
-      2: 'कार्यालय प्रति / STORE & OFFICE COPY',
-      3: 'लेखा प्रति / ACCOUNTS COPY',
-      4: 'अतिरिक्त प्रति / EXTRA COPY'
-    };
-
-    const copiesList = Array.isArray(selectedCopies) && selectedCopies.length > 0
-      ? selectedCopies
-      : Array.from({ length: Math.max(1, copiesPerPurchase) }, (_, i) => i + 1);
-
-    const printableList = [];
-    purchasesArray.forEach(p => {
-      copiesList.forEach(copyNum => {
-        printableList.push({
-          ...p,
-          _copyTitle: COPY_TITLES_PURCHASE[copyNum] || `प्रति #${copyNum} / COPY #${copyNum}`,
-          _copyIndex: copyNum
-        });
-      });
-    });
-
-    setActivePrintBill(null);
-    setPrintDocument({
-      type: 'multi_purchase',
-      purchases: printableList
-    });
-
-    setTimeout(() => {
-      window.print();
-    }, 200);
-  };
-
   // Find item by code / itemNo
   const findItemByCode = (code) => {
     if (!code) return null;
@@ -1430,9 +1337,6 @@ export function BillingProvider({ children }) {
         triggerPrintReport,
         triggerPrintStock,
         triggerPrintPurchase,
-        triggerMultiBillPrint,
-        triggerMultiCopyBillPrint,
-        triggerMultiPurchasePrint,
         generateNextBillNo,
         generateNextPurchaseNo,
         generateNextItemCode,
