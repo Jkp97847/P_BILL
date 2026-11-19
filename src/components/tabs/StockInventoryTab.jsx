@@ -43,6 +43,7 @@ export default function StockInventoryTab() {
     triggerPrintStock, 
     triggerPrintPurchase,
     triggerPrintReport,
+    triggerPrintMultiplePurchases,
     startEditingPurchase,
     setActiveTab,
     parseSerials, 
@@ -55,6 +56,9 @@ export default function StockInventoryTab() {
 
   // Active View: 'inventory' (Current Stock) | 'purchases' (Purchase Inward Invoices)
   const [activeStockView, setActiveStockView] = useState('inventory');
+
+  // Selected Purchases for Multi-Print
+  const [selectedPurchaseIds, setSelectedPurchaseIds] = useState([]);
 
   // Inventory Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -833,6 +837,22 @@ export default function StockInventoryTab() {
 
             {/* Print Action Buttons */}
             <div className="flex flex-wrap items-center gap-2">
+              {/* Selected Purchases Multi-Print Button */}
+              {selectedPurchaseIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toPrint = filteredPurchases.filter(p => selectedPurchaseIds.includes(p.id));
+                    triggerPrintMultiplePurchases(toPrint);
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer whitespace-nowrap"
+                  title="चयनित सभी खरीद वाउचर्स को अलग-अलग पेज पर एक ही प्रिंट में निकालें"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>🖨️ चयनित वाउचर प्रिंट करें ({selectedPurchaseIds.length})</span>
+                </button>
+              )}
+
               {/* 1. Yearly Purchases Report Print (April - March) */}
               <button
                 type="button"
@@ -899,7 +919,21 @@ export default function StockInventoryTab() {
               <table className="w-full text-left border-collapse text-xs min-w-[1000px]">
                 <thead>
                   <tr className="bg-amber-50/70 text-amber-950 font-bold uppercase border-b border-amber-200">
-                    <th className="py-3 px-3 w-10 text-center">#</th>
+                    <th className="py-3 px-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={filteredPurchases.length > 0 && selectedPurchaseIds.length === filteredPurchases.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedPurchaseIds(filteredPurchases.map(p => p.id));
+                          } else {
+                            setSelectedPurchaseIds([]);
+                          }
+                        }}
+                        className="rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                        title="सभी खरीद वाउचर चुनें / हटाएं"
+                      />
+                    </th>
                     <th className="py-3 px-3 w-32">वाउचर सं.</th>
                     <th className="py-3 px-3 w-28">दिनांक</th>
                     <th className="py-3 px-4">सप्लायर विवरण (Supplier)</th>
@@ -921,8 +955,22 @@ export default function StockInventoryTab() {
                   ) : (
                     filteredPurchases.map((pur, index) => (
                       <tr key={pur.id} className="hover:bg-amber-50/30 transition-colors">
-                        <td className="py-3 px-3 text-center font-bold text-slate-400">
-                          {index + 1}
+                        <td className="py-3 px-3 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <input
+                              type="checkbox"
+                              checked={selectedPurchaseIds.includes(pur.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedPurchaseIds(prev => [...prev, pur.id]);
+                                } else {
+                                  setSelectedPurchaseIds(prev => prev.filter(id => id !== pur.id));
+                                }
+                              }}
+                              className="rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                            />
+                            <span className="font-bold text-slate-400 text-[10px]">{index + 1}</span>
+                          </div>
                         </td>
                         <td className="py-3 px-3 font-mono font-bold text-amber-900">
                           {pur.purchaseNo}

@@ -35,9 +35,12 @@ export default function ReportTab() {
     startEditingBill,
     triggerPrint,
     triggerPrintReport,
+    triggerPrintMultipleBills,
     exportUserData,
     importUserData
   } = useBilling();
+
+  const [selectedBillIds, setSelectedBillIds] = useState([]);
 
   const handleEditBill = (bill) => {
     startEditingBill(bill);
@@ -339,6 +342,22 @@ export default function ReportTab() {
             <span>🖨️ वार्षिक रिपोर्ट प्रिंट (April-March)</span>
           </button>
 
+          {/* Selected Bills Multi-Print Button */}
+          {selectedBillIds.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                const toPrint = filteredBills.filter(b => selectedBillIds.includes(b.id));
+                triggerPrintMultipleBills(toPrint);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition-all cursor-pointer whitespace-nowrap"
+              title="चयनित सभी बिलों को अलग-अलग पेज पर एक ही प्रिंट में निकालें"
+            >
+              <Printer className="w-4 h-4" />
+              <span>🖨️ चयनित बिल प्रिंट करें ({selectedBillIds.length})</span>
+            </button>
+          )}
+
           {/* Current List Print */}
           <button
             type="button"
@@ -436,6 +455,21 @@ export default function ReportTab() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  <th className="py-3 px-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={filteredBills.length > 0 && selectedBillIds.length === filteredBills.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedBillIds(filteredBills.map(b => b.id));
+                        } else {
+                          setSelectedBillIds([]);
+                        }
+                      }}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                      title="सभी बिल चुनें / हटाएं"
+                    />
+                  </th>
                   <th className="py-3 px-4">बिल नं.</th>
                   <th className="py-3 px-4">दिनांक</th>
                   <th className="py-3 px-4">ग्राहक का नाम</th>
@@ -448,6 +482,22 @@ export default function ReportTab() {
               <tbody className="divide-y divide-slate-100 text-sm">
                 {filteredBills.map((bill) => (
                   <tr key={bill.id} className="hover:bg-slate-50/70 transition-colors">
+                    {/* Checkbox */}
+                    <td className="py-3 px-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedBillIds.includes(bill.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedBillIds(prev => [...prev, bill.id]);
+                          } else {
+                            setSelectedBillIds(prev => prev.filter(id => id !== bill.id));
+                          }
+                        }}
+                        className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                      />
+                    </td>
+
                     {/* Bill No */}
                     <td className="py-3 px-4 font-mono font-bold text-indigo-700">
                       {bill.billNo}

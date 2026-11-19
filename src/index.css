@@ -210,4 +210,21 @@
     padding: 0 !important;
     background-color: #ffffff !important;
   }
+
+  /* Multi Bill Print Container and Page Breaks */
+  .multi-bill-print-container {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .printable-bill-wrapper.bill-page-break {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  .printable-bill-wrapper:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
 }

@@ -337,6 +337,32 @@ export function BillingProvider({ children }) {
     }, 150);
   };
 
+  // Print multiple selected sale bills on separate pages in one print dialog
+  const triggerPrintMultipleBills = (billsList) => {
+    if (!billsList || billsList.length === 0) return;
+    setActivePrintBill(null);
+    setPrintDocument({
+      type: 'multi_bill',
+      bills: billsList
+    });
+    setTimeout(() => {
+      window.print();
+    }, 250);
+  };
+
+  // Print multiple selected purchase vouchers on separate pages in one print dialog
+  const triggerPrintMultiplePurchases = (purchasesList) => {
+    if (!purchasesList || purchasesList.length === 0) return;
+    setActivePrintBill(null);
+    setPrintDocument({
+      type: 'multi_purchase',
+      purchases: purchasesList
+    });
+    setTimeout(() => {
+      window.print();
+    }, 250);
+  };
+
   // Find item by code / itemNo
   const findItemByCode = (code) => {
     if (!code) return null;
@@ -1337,6 +1363,8 @@ export function BillingProvider({ children }) {
         triggerPrintReport,
         triggerPrintStock,
         triggerPrintPurchase,
+        triggerPrintMultipleBills,
+        triggerPrintMultiplePurchases,
         generateNextBillNo,
         generateNextPurchaseNo,
         generateNextItemCode,

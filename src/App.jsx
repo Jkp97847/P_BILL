@@ -116,6 +116,24 @@ function MainApp() {
             settings={settings}
           />
         )}
+        {printDocument?.type === 'multi_bill' && (
+          <div className="multi-bill-print-container">
+            {printDocument.bills?.map((bill, index) => (
+              <div key={bill.id || index} className="printable-bill-wrapper bill-page-break">
+                <PrintableBill bill={bill} settings={settings} />
+              </div>
+            ))}
+          </div>
+        )}
+        {printDocument?.type === 'multi_purchase' && (
+          <div className="multi-bill-print-container">
+            {printDocument.purchases?.map((pur, index) => (
+              <div key={pur.id || index} className="printable-bill-wrapper bill-page-break">
+                <PrintablePurchaseInvoice purchase={pur} settings={settings} />
+              </div>
+            ))}
+          </div>
+        )}
         {!printDocument && activePrintBill && (
           <PrintableBill bill={activePrintBill} settings={settings} />
         )}

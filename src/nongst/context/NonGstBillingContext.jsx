@@ -507,6 +507,19 @@ export function BillingProvider({ children }) {
     }, 250);
   };
 
+  // Trigger Print for Multiple Selected Bills
+  const triggerPrintMultipleBills = (billsList) => {
+    if (!billsList || billsList.length === 0) return;
+    setActivePrintBill(null);
+    setPrintDocument({
+      type: 'multi_bill',
+      bills: billsList
+    });
+    setTimeout(() => {
+      window.print();
+    }, 250);
+  };
+
   // Trigger Print for Report (All bills or Financial Year)
   const triggerPrintReport = ({ items, filterDate, searchTerm, stats, isYearly = false }) => {
     setActivePrintBill(null);
@@ -692,6 +705,7 @@ export function BillingProvider({ children }) {
         generateNextBillNo,
         triggerPrint,
         triggerPrintReport,
+        triggerPrintMultipleBills,
         exportUserData,
         importUserData,
         exportData: exportUserData,

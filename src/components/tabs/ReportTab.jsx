@@ -44,9 +44,14 @@ export default function ReportTab() {
     triggerPrint,
     triggerPrintReport,
     triggerPrintPurchase,
+    triggerPrintMultipleBills,
+    triggerPrintMultiplePurchases,
     exportData,
     importData
   } = useBilling();
+
+  const [selectedBillIds, setSelectedBillIds] = useState([]);
+  const [selectedPurchaseIds, setSelectedPurchaseIds] = useState([]);
 
   const handleEditBill = (bill) => {
     startEditingBill(bill);
@@ -488,6 +493,38 @@ export default function ReportTab() {
 
         {/* Print Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Selected Bills Multi-Print Button */}
+          {reportType === 'sales' && selectedBillIds.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                const toPrint = filteredBills.filter(b => selectedBillIds.includes(b.id));
+                triggerPrintMultipleBills(toPrint);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer whitespace-nowrap"
+              title="चयनित सभी बिलों को अलग-अलग पेज पर एक ही प्रिंट में निकालें"
+            >
+              <Printer className="w-4 h-4" />
+              <span>🖨️ चयनित बिल प्रिंट करें ({selectedBillIds.length})</span>
+            </button>
+          )}
+
+          {/* Selected Purchases Multi-Print Button */}
+          {reportType === 'purchases' && selectedPurchaseIds.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                const toPrint = filteredPurchases.filter(p => selectedPurchaseIds.includes(p.id));
+                triggerPrintMultiplePurchases(toPrint);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer whitespace-nowrap"
+              title="चयनित सभी खरीद वाउचर्स को अलग-अलग पेज पर एक ही प्रिंट में निकालें"
+            >
+              <Printer className="w-4 h-4" />
+              <span>🖨️ चयनित वाउचर प्रिंट करें ({selectedPurchaseIds.length})</span>
+            </button>
+          )}
+
           {/* 1. Yearly Report Print (April - March) */}
           <button
             type="button"
@@ -557,7 +594,21 @@ export default function ReportTab() {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-100 text-slate-700 font-bold uppercase border-b border-slate-200">
-                  <th className="py-3 px-3 w-10 text-center">#</th>
+                  <th className="py-3 px-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={filteredBills.length > 0 && selectedBillIds.length === filteredBills.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedBillIds(filteredBills.map(b => b.id));
+                        } else {
+                          setSelectedBillIds([]);
+                        }
+                      }}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                      title="सभी बिल चुनें / हटाएं"
+                    />
+                  </th>
                   <th className="py-3 px-3 w-32">इनवॉइस नंबर</th>
                   <th className="py-3 px-3 w-24">दिनांक</th>
                   <th className="py-3 px-4">ग्राहक विवरण (Buyer)</th>
@@ -578,8 +629,22 @@ export default function ReportTab() {
                 ) : (
                   filteredBills.map((bill, index) => (
                     <tr key={bill.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-3 text-center font-bold text-slate-400">
-                        {index + 1}
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <input
+                            type="checkbox"
+                            checked={selectedBillIds.includes(bill.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedBillIds(prev => [...prev, bill.id]);
+                              } else {
+                                setSelectedBillIds(prev => prev.filter(id => id !== bill.id));
+                              }
+                            }}
+                            className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          />
+                          <span className="font-bold text-slate-400 text-[10px]">{index + 1}</span>
+                        </div>
                       </td>
                       <td className="py-3 px-3 font-mono font-bold text-indigo-900">
                         {bill.billNo}
@@ -675,7 +740,21 @@ export default function ReportTab() {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-100 text-slate-700 font-bold uppercase border-b border-slate-200">
-                  <th className="py-3 px-3 w-10 text-center">#</th>
+                  <th className="py-3 px-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={filteredPurchases.length > 0 && selectedPurchaseIds.length === filteredPurchases.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedPurchaseIds(filteredPurchases.map(p => p.id));
+                        } else {
+                          setSelectedPurchaseIds([]);
+                        }
+                      }}
+                      className="rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                      title="सभी खरीद वाउचर चुनें / हटाएं"
+                    />
+                  </th>
                   <th className="py-3 px-3 w-32">खरीद वाउचर सं.</th>
                   <th className="py-3 px-3 w-24">दिनांक</th>
                   <th className="py-3 px-4">सप्लायर / डिस्ट्रीब्यूटर</th>
@@ -696,8 +775,22 @@ export default function ReportTab() {
                 ) : (
                   filteredPurchases.map((pur, index) => (
                     <tr key={pur.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-3 text-center font-bold text-slate-400">
-                        {index + 1}
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <input
+                            type="checkbox"
+                            checked={selectedPurchaseIds.includes(pur.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedPurchaseIds(prev => [...prev, pur.id]);
+                              } else {
+                                setSelectedPurchaseIds(prev => prev.filter(id => id !== pur.id));
+                              }
+                            }}
+                            className="rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                          />
+                          <span className="font-bold text-slate-400 text-[10px]">{index + 1}</span>
+                        </div>
                       </td>
                       <td className="py-3 px-3 font-mono font-bold text-amber-900">
                         <div>{pur.purchaseNo}</div>
