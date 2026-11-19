@@ -7,7 +7,11 @@ import {
   CreditCard, 
   CheckCircle2, 
   Save, 
-  Printer 
+  Printer,
+  Download,
+  Upload,
+  Database,
+  AlertCircle
 } from 'lucide-react';
 import { 
   formatMobileInput, 
@@ -15,7 +19,7 @@ import {
 } from '../../../utils/validation';
 
 export default function RechargeSettingsTab() {
-  const { settings, updateSettings } = useRecharge();
+  const { settings, updateSettings, exportUserData, importUserData } = useRecharge();
 
   const [formData, setFormData] = useState({
     shopName: settings.shopName || '',
@@ -38,6 +42,7 @@ export default function RechargeSettingsTab() {
   });
 
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [backupNotification, setBackupNotification] = useState(null);
 
   const handleChange = (field, val) => {
     setFormData(prev => ({ ...prev, [field]: val }));
@@ -50,12 +55,78 @@ export default function RechargeSettingsTab() {
     setTimeout(() => setSavedSuccess(false), 3500);
   };
 
+  const handleExportJSON = () => {
+    try {
+      exportUserData();
+      setBackupNotification({
+        type: 'success',
+        message: 'रिचार्ज एवं बिल डेटा बैकअप (.json) फ़ाइल सफलतापूर्वक डाउनलोड हो गई!'
+      });
+    } catch (err) {
+      setBackupNotification({
+        type: 'error',
+        message: 'बैकअप डाउनलोड में त्रुटि: ' + err.message
+      });
+    }
+    setTimeout(() => setBackupNotification(null), 4000);
+  };
+
+  const handleFileImport = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target.result);
+        const res = importUserData(json);
+        if (res.success) {
+          if (json.settings) {
+            setFormData(prev => ({ ...prev, ...json.settings }));
+          }
+          setBackupNotification({
+            type: 'success',
+            message: res.message || 'रिचार्ज डेटा बैकअप सफलतापूर्वक रीस्टोर हो गया!'
+          });
+        } else {
+          setBackupNotification({
+            type: 'error',
+            message: res.message || 'फ़ाइल पढ़ने में त्रुटि!'
+          });
+        }
+      } catch (err) {
+        setBackupNotification({
+          type: 'error',
+          message: 'अमान्य JSON फ़ाइल: ' + err.message
+        });
+      }
+      setTimeout(() => setBackupNotification(null), 4000);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   return (
     <div className="py-6 px-4 max-w-4xl mx-auto">
       {savedSuccess && (
         <div className="mb-5 p-3.5 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl flex items-center gap-2 text-sm font-bold shadow-sm">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
           <span>✅ सेटिंग्स सफलतापूर्वक सुरक्षित हो गईं!</span>
+        </div>
+      )}
+
+      {backupNotification && (
+        <div className={`mb-5 p-3.5 rounded-xl flex items-center gap-2 text-sm font-bold shadow-sm ${
+          backupNotification.type === 'error'
+            ? 'bg-rose-50 text-rose-800 border border-rose-300'
+            : 'bg-emerald-50 text-emerald-800 border border-emerald-300'
+        }`}>
+          {backupNotification.type === 'error' ? (
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+          ) : (
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          )}
+          <span>{backupNotification.message}</span>
         </div>
       )}
 
@@ -403,6 +474,46 @@ export default function RechargeSettingsTab() {
                 <span>डिजिटल ग्रीन मुहर दिखाएं (Show Verified Stamp)</span>
               </label>
             </div>
+          </div>
+        </div>
+
+        {/* 5. Data Backup & Restore Card */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          <div className="flex items-center gap-2 pb-3 mb-4 border-b border-slate-200">
+            <Database className="w-5 h-5 text-indigo-600" />
+            <h3 className="text-base font-black text-slate-900">
+              5. डेटा बैकअप एवं रीस्टोर (Data Backup & Restore)
+            </h3>
+          </div>
+
+          <p className="text-xs text-slate-600 mb-4 leading-relaxed">
+            अपने सभी रिचार्ज व बिल रसीदों एवं सेटिंग्स का सुरक्षित JSON बैकअप कंप्यूटर में डाउनलोड करें अथवा पहले से सहेजी गई बैकअप फाइल से डेटा रीस्टोर करें।
+          </p>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleExportJSON}
+              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+              title="सभी रिचार्ज रसीदों एवं सेटिंग्स का सुरक्षित JSON बैकअप डाउनलोड करें"
+            >
+              <Download className="w-4 h-4 text-white" />
+              <span>डेटा बैकअप डाउनलोड (Export JSON)</span>
+            </button>
+
+            <label
+              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+              title="पुरानी बैकअप JSON फ़ाइल से डेटा रीस्टोर करें"
+            >
+              <Upload className="w-4 h-4 text-indigo-600" />
+              <span>बैकअप फ़ाइल रीस्टोर करें (Import JSON)</span>
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleFileImport}
+                className="hidden"
+              />
+            </label>
           </div>
         </div>
 

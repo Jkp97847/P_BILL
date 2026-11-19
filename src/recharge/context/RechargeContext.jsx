@@ -253,6 +253,77 @@ export function RechargeProvider({ children }) {
     }, 150);
   };
 
+  // Backup Export (.json)
+  const exportUserData = () => {
+    const backupPayload = {
+      backupType: 'recharge_utility_backup',
+      version: '1.0',
+      userId: activeUserId,
+      userShop: settings.shopName || 'Recharge_Center',
+      ownerName: settings.ownerName || '',
+      exportedAt: new Date().toISOString(),
+      settings: settings,
+      transactions: transactions
+    };
+
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backupPayload, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    const safeShopName = (settings.shopName || 'recharge').replace(/[^a-zA-Z0-9_\u0900-\u097F]/g, '_');
+    downloadAnchor.setAttribute(
+      'download',
+      `recharge_utility_backup_${safeShopName}_${new Date().toISOString().split('T')[0]}.json`
+    );
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    return true;
+  };
+
+  // Backup Import (.json)
+  const importUserData = (jsonData) => {
+    try {
+      const parsed = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
+
+      if (!parsed || typeof parsed !== 'object') {
+        throw new Error('अमान्य JSON फ़ाइल स्वरूप।');
+      }
+
+      if (parsed.backupType === 'master_database_backup') {
+        throw new Error('यह मास्टर डेटाबेस बैकअप है। इसे केवल सुपर एडमिन पोर्टल से रीस्टोर किया जा सकता है।');
+      }
+
+      const newSettings = parsed.settings;
+      const newTransactions = parsed.transactions || parsed.bills;
+
+      if (!newSettings && !Array.isArray(newTransactions)) {
+        throw new Error('इस बैकअप फ़ाइल में रिचार्ज अथवा सेटिंग्स का डेटा नहीं मिला।');
+      }
+
+      if (newSettings && typeof newSettings === 'object') {
+        updateSettings(newSettings);
+      }
+
+      if (Array.isArray(newTransactions)) {
+        setTransactions(newTransactions);
+        try {
+          localStorage.setItem(storageKeyBills, JSON.stringify(newTransactions));
+        } catch {
+          // ignore
+        }
+        bulkSyncRechargeBillsToCloud(activeUserId, newTransactions);
+      }
+
+      const count = Array.isArray(newTransactions) ? newTransactions.length : 0;
+      return {
+        success: true,
+        message: `रिचार्ज डेटा बैकअप सफलतापूर्वक लोड हो गया! (${count} रसीदें रीस्टोर हुईं)`
+      };
+    } catch (err) {
+      return { success: false, message: err.message || 'अमान्य बैकअप फाइल।' };
+    }
+  };
+
   return (
     <RechargeContext.Provider
       value={{
@@ -267,7 +338,11 @@ export function RechargeProvider({ children }) {
         clearAllTransactions,
         activePrintSlip,
         setActivePrintSlip,
-        printSlip
+        printSlip,
+        exportUserData,
+        exportData: exportUserData,
+        importUserData,
+        importData: importUserData
       }}
     >
       {children}

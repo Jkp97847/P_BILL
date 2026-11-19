@@ -4,19 +4,30 @@ import {
   FileText, 
   Search, 
   Download, 
+  Upload,
   Trash2, 
   Printer, 
   Calendar, 
   Filter, 
   TrendingUp, 
   DollarSign, 
-  Layers 
+  Layers,
+  AlertCircle,
+  CheckCircle
 } from 'lucide-react';
 import { isDateInFinancialYear, getCurrentFinancialYear } from '../../../utils/financialYear';
 
 export default function RechargeReportTab() {
-  const { transactions, deleteTransaction, clearAllTransactions, printSlip } = useRecharge();
+  const { 
+    transactions, 
+    deleteTransaction, 
+    clearAllTransactions, 
+    printSlip,
+    exportUserData,
+    importUserData
+  } = useRecharge();
 
+  const [notification, setNotification] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [serviceFilter, setServiceFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all'); // 'all' | 'today' | 'yesterday' | 'month' | 'fy'
@@ -118,8 +129,74 @@ export default function RechargeReportTab() {
     }
   };
 
+  // Export JSON Backup
+  const handleExportJSON = () => {
+    try {
+      exportUserData();
+      setNotification({
+        type: 'success',
+        message: 'रिचार्ज एवं बिल डेटा बैकअप (.json) सफलतापूर्वक डाउनलोड हो गया!'
+      });
+    } catch (err) {
+      setNotification({
+        type: 'error',
+        message: 'बैकअप डाउनलोड में त्रुटि: ' + err.message
+      });
+    }
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  // Import JSON Backup
+  const handleFileImport = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target.result);
+        const res = importUserData(json);
+        if (res.success) {
+          setNotification({
+            type: 'success',
+            message: res.message || 'रिचार्ज डेटा बैकअप सफलतापूर्वक रीस्टोर हो गया!'
+          });
+        } else {
+          setNotification({
+            type: 'error',
+            message: res.message || 'फ़ाइल पढ़ने में त्रुटि!'
+          });
+        }
+      } catch (err) {
+        setNotification({
+          type: 'error',
+          message: 'अमान्य JSON फ़ाइल: ' + err.message
+        });
+      }
+      setTimeout(() => setNotification(null), 4000);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   return (
     <div className="py-6 px-4 max-w-7xl mx-auto">
+      {/* Notification Banner */}
+      {notification && (
+        <div className={`mb-6 p-4 rounded-2xl flex items-center gap-3 shadow-md transition-all ${
+          notification.type === 'error'
+            ? 'bg-rose-50 text-rose-800 border border-rose-300'
+            : 'bg-emerald-50 text-emerald-800 border border-emerald-300'
+        }`}>
+          {notification.type === 'error' ? (
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+          ) : (
+            <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+          )}
+          <span className="font-bold text-sm">{notification.message}</span>
+        </div>
+      )}
+
       {/* 1. Metric Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {/* Total Bills */}
@@ -223,6 +300,32 @@ export default function RechargeReportTab() {
             <Download className="w-3.5 h-3.5 text-amber-400" />
             <span>CSV डाउनलोड</span>
           </button>
+
+          {/* Export JSON Backup */}
+          <button
+            type="button"
+            onClick={handleExportJSON}
+            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+            title="सभी रिचार्ज रसीदों एवं सेटिंग्स का सुरक्षित JSON बैकअप डाउनलोड करें"
+          >
+            <Download className="w-3.5 h-3.5 text-white" />
+            <span>डेटा बैकअप (Export JSON)</span>
+          </button>
+
+          {/* Import JSON Backup */}
+          <label
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+            title="पुरानी बैकअप JSON फ़ाइल से डेटा रीस्टोर करें"
+          >
+            <Upload className="w-3.5 h-3.5 text-indigo-600" />
+            <span>बैकअप लोड (Import)</span>
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleFileImport}
+              className="hidden"
+            />
+          </label>
 
           {/* Clear All */}
           {transactions.length > 0 && (
