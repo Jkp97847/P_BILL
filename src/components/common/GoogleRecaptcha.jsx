@@ -38,7 +38,7 @@ function loadRecaptchaScript() {
         clearInterval(interval);
         reject(new Error('Google reCAPTCHA script load timeout'));
       }
-    }, 150);
+    }, 100);
   });
 
   return scriptLoadingPromise;
@@ -56,11 +56,16 @@ const GoogleRecaptcha = forwardRef(function GoogleRecaptcha(
 ) {
   const containerRef = useRef(null);
   const widgetIdRef = useRef(null);
+  const onVerifyRef = useRef(onVerify);
+  onVerifyRef.current = onVerify;
+  const onExpiredRef = useRef(onExpired);
+  onExpiredRef.current = onExpired;
+
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'verified' | 'error'
   const [errorMessage, setErrorMessage] = useState('');
   const [fallbackChecked, setFallbackChecked] = useState(false);
 
-  // Expose imperative methods: reset and getResponse
+  // Expose imperative methods: reset, getResponse, and isVerified
   useImperativeHandle(ref, () => ({
     reset: () => {
       setFallbackChecked(false);
@@ -76,50 +81,73 @@ const GoogleRecaptcha = forwardRef(function GoogleRecaptcha(
     getResponse: () => {
       if (window.grecaptcha && widgetIdRef.current !== null) {
         try {
-          return window.grecaptcha.getResponse(widgetIdRef.current);
+          const resp = window.grecaptcha.getResponse(widgetIdRef.current);
+          if (resp) return resp;
         } catch (err) {
-          return '';
+          console.warn('grecaptcha.getResponse(widgetId) error:', err);
         }
       }
+      if (window.grecaptcha && typeof window.grecaptcha.getResponse === 'function') {
+        try {
+          const resp = window.grecaptcha.getResponse();
+          if (resp) return resp;
+        } catch {}
+      }
       return fallbackChecked ? 'fallback_verified' : '';
+    },
+    isVerified: () => {
+      if (fallbackChecked) return true;
+      if (status === 'verified') return true;
+      if (window.grecaptcha && widgetIdRef.current !== null) {
+        try {
+          return Boolean(window.grecaptcha.getResponse(widgetIdRef.current));
+        } catch {}
+      }
+      if (window.grecaptcha && typeof window.grecaptcha.getResponse === 'function') {
+        try {
+          return Boolean(window.grecaptcha.getResponse());
+        } catch {}
+      }
+      return false;
     }
   }));
 
   useEffect(() => {
-    let isCancelled = false;
+    let unmounted = false;
 
     loadRecaptchaScript()
       .then((grecaptcha) => {
-        if (isCancelled || !containerRef.current) return;
+        if (unmounted || !containerRef.current) return;
 
         grecaptcha.ready(() => {
-          if (isCancelled || !containerRef.current) return;
+          if (unmounted || !containerRef.current) return;
 
-          // If widget is already created in this instance, do nothing
+          // If widget is already created in this container, just mark ready
           if (widgetIdRef.current !== null) {
             setStatus('ready');
             return;
           }
 
           try {
-            // Clean container to avoid duplicate elements
+            // Clean container to avoid duplicate iframes
             containerRef.current.innerHTML = '';
 
             const id = grecaptcha.render(containerRef.current, {
               sitekey: sitekey,
               theme: theme,
               callback: (token) => {
-                if (isCancelled) return;
                 setStatus('verified');
-                if (onVerify) onVerify(token);
+                if (onVerifyRef.current) {
+                  onVerifyRef.current(token);
+                }
               },
               'expired-callback': () => {
-                if (isCancelled) return;
                 setStatus('ready');
-                if (onExpired) onExpired();
+                if (onExpiredRef.current) {
+                  onExpiredRef.current();
+                }
               },
               'error-callback': () => {
-                if (isCancelled) return;
                 setStatus('error');
                 setErrorMessage('Google reCAPTCHA सत्यापन में त्रुटि हुई।');
               }
@@ -129,8 +157,7 @@ const GoogleRecaptcha = forwardRef(function GoogleRecaptcha(
             setStatus('ready');
           } catch (err) {
             console.warn('grecaptcha.render error:', err);
-            if (!isCancelled) {
-              // If already rendered, mark as ready
+            if (!unmounted) {
               if (String(err?.message || '').includes('already been rendered')) {
                 setStatus('ready');
               } else {
@@ -142,7 +169,7 @@ const GoogleRecaptcha = forwardRef(function GoogleRecaptcha(
         });
       })
       .catch((err) => {
-        if (!isCancelled) {
+        if (!unmounted) {
           console.warn('reCAPTCHA load error:', err);
           setStatus('error');
           setErrorMessage('Google reCAPTCHA लोड नहीं हो सका (ऑफ़लाइन या नेटवर्क प्रतिबंध)।');
@@ -150,9 +177,9 @@ const GoogleRecaptcha = forwardRef(function GoogleRecaptcha(
       });
 
     return () => {
-      isCancelled = true;
+      unmounted = true;
     };
-  }, [sitekey, theme, onVerify, onExpired]);
+  }, [sitekey, theme]);
 
   // Fallback handler if Google servers are blocked/offline
   const handleFallbackVerify = () => {
@@ -160,10 +187,10 @@ const GoogleRecaptcha = forwardRef(function GoogleRecaptcha(
     setFallbackChecked(next);
     if (next) {
       setStatus('verified');
-      if (onVerify) onVerify('fallback_verified_offline_token');
+      if (onVerifyRef.current) onVerifyRef.current('fallback_verified_offline_token');
     } else {
       setStatus('ready');
-      if (onExpired) onExpired();
+      if (onExpiredRef.current) onExpiredRef.current();
     }
   };
 
